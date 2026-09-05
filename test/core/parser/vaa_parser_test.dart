@@ -235,4 +235,67 @@ void main() {
       expect(advisories.length, equals(3));
     });
   });
+
+  group('Multi-polygon layer parsing (e.g. Krakatau)', () {
+    const krakatauFixture = '''
+VA ADVISORY
+DTG: 20260905/2230Z
+VAAC: DARWIN
+VOLCANO: KRAKATAU 262000
+PSN: S0606 E10525
+AREA: INDONESIA
+SOURCE ELEV: 155M AMSL
+ADVISORY NR: 2026/182
+INFO SOURCE: HIMAWARI-9 CVGHM
+ERUPTION DETAILS: VA TO FL500 MOV W, VA TO FL200 MOV E
+OBS VA DTG: 05/2210Z
+OBS VA CLD: SFC/FL200 S0459 E10658 - S0641 E11009 - S0904
+        E10916 - S0959 E10501 - S0728 E10149 MOV E 10KT SFC/FL500
+        S0714 E10625 - S1033 E10020 - S1705 E09640 - S1204 E08003 -
+        S0226 E08747 - S0023 E10020 - S0500 E10658 MOV W 30KT
+FCST VA CLD +6 HR: 06/0410Z SFC/FL200 S0504 E10700 - S0641
+        E11007 - S0901 E10914 - S1000 E10501 - S0728 E10147
+        SFC/FL500 S0714 E10617 - S1031 E10025 - S1842 E09718 - S1303
+        E07717 - S0259 E08536 - S0023 E10020 - S0504 E10700
+FCST VA CLD +12 HR: 06/1010Z SFC/FL200 S0502 E10654 - S0644
+        E11005 - S0903 E10916 - S0957 E10501 - S0731 E10150
+        SFC/FL500 S0717 E10625 - S1038 E10020 - S1916 E09618 - S1441
+        E07646 - S0245 E08536 - S0023 E10020 - S0500 E10658
+FCST VA CLD +18 HR: 06/1610Z SFC/FL200 S0459 E10657 - S0642
+        E11009 - S0905 E10917 - S0959 E10500 - S0727 E10145
+        SFC/FL500 S0715 E10622 - S1028 E10025 - S2051 E09556 - S1601
+        E07454 - S0245 E08419 - S0025 E10023 - S0504 E10702
+RMK: HIGH LEVEL VA TO FL500 MOV W AND CONTINUOUS VA TO FL200 MOV E.
+NXT ADVISORY: NO LATER THAN 20260906/0030Z=
+''';
+
+    test('extracts multiple sub-polygons per section for Krakatau', () {
+      final advisories = parser.parse(krakatauFixture);
+      expect(advisories.length, equals(1));
+
+      final krakatau = advisories.first;
+      expect(krakatau.volcanoName, equals('KRAKATAU'));
+      expect(krakatau.advisoryNumber, equals('2026/182'));
+
+      // Total 8 polygons (2 observed + 2 each for +6h, +12h, +18h)
+      expect(krakatau.polygons.length, equals(8));
+      expect(krakatau.activePolygons.length, equals(8));
+
+      // Check observed polygons
+      final obs = krakatau.polygons.where((p) => p.type == PolygonType.observed).toList();
+      expect(obs.length, equals(2));
+
+      // Layer 1: SFC/FL200 MOV E 10KT
+      expect(obs[0].topFlightLevel, equals('FL200'));
+      expect(obs[0].movementDirection, equals('E'));
+      expect(obs[0].movementSpeed, equals('10 KT'));
+      expect(obs[0].coordinates.length, equals(5));
+
+      // Layer 2: SFC/FL500 MOV W 30KT
+      expect(obs[1].topFlightLevel, equals('FL500'));
+      expect(obs[1].movementDirection, equals('W'));
+      expect(obs[1].movementSpeed, equals('30 KT'));
+      expect(obs[1].coordinates.length, equals(7));
+    });
+  });
 }

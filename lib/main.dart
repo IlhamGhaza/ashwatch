@@ -10,7 +10,7 @@ import 'package:ashwatch/presentation/pages/map_page.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set preferred orientations
+  // Set preferred orientations and system UI overlay matching default dark theme
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,

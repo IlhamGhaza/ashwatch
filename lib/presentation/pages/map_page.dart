@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:ashwatch/data/models/volcano_advisory.dart';
@@ -30,16 +32,91 @@ class _MapPageState extends State<MapPage> {
   final MapController _mapController = MapController();
   final DraggableScrollableController _sheetController = DraggableScrollableController();
 
+  // User location state
+  LatLng? _userLocation;
+  StreamSubscription<Position>? _positionSubscription;
+  bool _locationPermissionDenied = false;
+
   @override
   void initState() {
     super.initState();
     context.read<DarwinVaaBloc>().add(const LoadAdvisories());
+    _initLocation();
   }
 
   @override
   void dispose() {
+    _positionSubscription?.cancel();
     _sheetController.dispose();
     super.dispose();
+  }
+
+  /// Initialize user location with full permission handling.
+  ///
+  /// Supports Android below 12 and above 12 via the geolocator package
+  /// which handles runtime permission requests internally.
+  Future<void> _initLocation() async {
+    try {
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        // Location services not enabled, skip
+        return;
+      }
+
+      // Check and request permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() => _locationPermissionDenied = true);
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        setState(() => _locationPermissionDenied = true);
+        return;
+      }
+
+      // Get initial position
+      try {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 10),
+          ),
+        );
+        if (mounted) {
+          setState(() {
+            _userLocation = LatLng(position.latitude, position.longitude);
+          });
+        }
+      } catch (_) {
+        // Timeout or error getting initial position, continue anyway
+      }
+
+      // Listen for position updates
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          distanceFilter: 50, // Update every 50 meters
+        ),
+      ).listen(
+        (Position position) {
+          if (mounted) {
+            setState(() {
+              _userLocation = LatLng(position.latitude, position.longitude);
+            });
+          }
+        },
+        onError: (_) {
+          // Ignore location stream errors
+        },
+      );
+    } catch (_) {
+      // Location initialization failed, continue without it
+    }
   }
 
   void _fitMapToAdvisories(List<VolcanoAdvisory> advisories) {
@@ -90,7 +167,7 @@ class _MapPageState extends State<MapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
+      backgroundColor: const Color(0xFFF5F5F5),
       body: BlocConsumer<DarwinVaaBloc, DarwinVaaState>(
         listener: (context, state) {
           if (state is DarwinVaaSuccess) {
@@ -159,32 +236,34 @@ class _MapPageState extends State<MapPage> {
         initialZoom: 5,
         minZoom: 3,
         maxZoom: 14,
-        backgroundColor: const Color(0xFF0D1117),
+        backgroundColor: const Color(0xFFE8E0D8),
         interactionOptions: const InteractionOptions(
           flags: InteractiveFlag.all,
         ),
       ),
       children: [
-        // OSM tile layer
+        // OSM tile layer — normal bright tiles (no dark filter)
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.ashwatch.app',
-          tileBuilder: (context, widget, tile) {
-            return ColorFiltered(
-              colorFilter: const ColorFilter.matrix([
-                0.3, 0, 0, 0, 0,    // R
-                0, 0.3, 0, 0, 0,    // G
-                0, 0, 0.4, 0, 0,    // B
-                0, 0, 0, 1, 0,      // A
-              ]),
-              child: widget,
-            );
-          },
         ),
 
         // Ash polygons
         if (advisories.isNotEmpty)
           PolygonLayer(polygons: buildAshPolygons(advisories)),
+
+        // User location marker
+        if (_userLocation != null)
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: _userLocation!,
+                width: 28,
+                height: 28,
+                child: const _UserLocationMarker(),
+              ),
+            ],
+          ),
 
         // Volcano markers
         if (advisories.isNotEmpty)
@@ -199,6 +278,8 @@ class _MapPageState extends State<MapPage> {
   }
 
   Widget _buildTopBar(DarwinVaaState state) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Positioned(
       top: 0,
       left: 0,
@@ -210,28 +291,34 @@ class _MapPageState extends State<MapPage> {
           16,
           10,
         ),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xE60D1117),
-              Color(0xCC0D1117),
-              Color(0x000D1117),
-            ],
+            colors: isDark
+                ? [
+                    const Color(0xFF0D1117).withValues(alpha: 0.95),
+                    const Color(0xFF0D1117).withValues(alpha: 0.8),
+                    Colors.transparent,
+                  ]
+                : [
+                    Colors.white.withValues(alpha: 0.95),
+                    Colors.white.withValues(alpha: 0.85),
+                    Colors.white.withValues(alpha: 0.0),
+                  ],
           ),
         ),
         child: Row(
           children: [
             // Title
-            const Column(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   'Volcanic Ash',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: isDark ? Colors.white : const Color(0xFF1A1A2E),
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -239,7 +326,9 @@ class _MapPageState extends State<MapPage> {
                 Text(
                   'Darwin VAAC',
                   style: TextStyle(
-                    color: Color(0x80FFFFFF),
+                    color: isDark
+                        ? const Color(0x99FFFFFF)
+                        : const Color(0xFF1A1A2E).withValues(alpha: 0.5),
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                   ),
@@ -247,6 +336,21 @@ class _MapPageState extends State<MapPage> {
               ],
             ),
             const Spacer(),
+            // My location button
+            _LocationButton(
+              hasLocation: _userLocation != null,
+              denied: _locationPermissionDenied,
+              onPressed: () {
+                if (_userLocation != null) {
+                  _mapController.move(_userLocation!, 10);
+                } else if (_locationPermissionDenied) {
+                  Geolocator.openAppSettings();
+                } else {
+                  _initLocation();
+                }
+              },
+            ),
+            const SizedBox(width: 8),
             // Refresh button
             _RefreshButton(
               isLoading: state is DarwinVaaLoading,
@@ -263,6 +367,7 @@ class _MapPageState extends State<MapPage> {
   }
 
   Widget _buildBottomSheet(List<VolcanoAdvisory> advisories, DateTime lastUpdated) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     if (isLandscape) {
@@ -284,12 +389,21 @@ class _MapPageState extends State<MapPage> {
       snapSizes: const [0.18, 0.4, 0.55],
       builder: (context, scrollController) {
         return Container(
-          decoration: const BoxDecoration(
-            color: Color(0xF2141B2D),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            border: Border(
-              top: BorderSide(color: Color(0x1AFFFFFF), width: 0.5),
-            ),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF141B2D).withValues(alpha: 0.97)
+                : Colors.white.withValues(alpha: 0.97),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            border: isDark
+                ? const Border(top: BorderSide(color: Color(0x26FFFFFF), width: 0.5))
+                : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.1),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
+            ],
           ),
           child: _buildSheetContent(advisories, lastUpdated, scrollController),
         );
@@ -298,12 +412,23 @@ class _MapPageState extends State<MapPage> {
   }
 
   Widget _buildSidePanel(List<VolcanoAdvisory> advisories, DateTime lastUpdated) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xF2141B2D),
-        border: Border(
-          left: BorderSide(color: Color(0x1AFFFFFF), width: 0.5),
-        ),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF141B2D).withValues(alpha: 0.97)
+            : Colors.white.withValues(alpha: 0.97),
+        border: isDark
+            ? const Border(left: BorderSide(color: Color(0x26FFFFFF), width: 0.5))
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.1),
+            blurRadius: 10,
+            offset: const Offset(-2, 0),
+          ),
+        ],
       ),
       child: SafeArea(
         child: _buildSheetContent(advisories, lastUpdated, null),
@@ -316,6 +441,7 @@ class _MapPageState extends State<MapPage> {
     DateTime lastUpdated,
     ScrollController? scrollController,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final updatedStr = DateFormat('HH:mm').format(lastUpdated);
 
     return ListView(
@@ -329,7 +455,7 @@ class _MapPageState extends State<MapPage> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0x33FFFFFF),
+                color: isDark ? const Color(0x33FFFFFF) : const Color(0x33000000),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -342,8 +468,8 @@ class _MapPageState extends State<MapPage> {
           children: [
             Text(
               'Active Advisories: ${advisories.length}',
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: isDark ? Colors.white : const Color(0xFF1A1A2E),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -351,8 +477,10 @@ class _MapPageState extends State<MapPage> {
             const Spacer(),
             Text(
               '$updatedStr UTC',
-              style: const TextStyle(
-                color: Color(0x66FFFFFF),
+              style: TextStyle(
+                color: isDark
+                    ? const Color(0x66FFFFFF)
+                    : const Color(0xFF1A1A2E).withValues(alpha: 0.4),
                 fontSize: 11,
                 fontFamily: 'monospace',
               ),
@@ -360,15 +488,20 @@ class _MapPageState extends State<MapPage> {
           ],
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'Source: Bureau of Meteorology — Darwin VAAC',
           style: TextStyle(
-            color: Color(0x4DFFFFFF),
+            color: isDark
+                ? const Color(0x4DFFFFFF)
+                : const Color(0xFF1A1A2E).withValues(alpha: 0.35),
             fontSize: 10,
           ),
         ),
         const SizedBox(height: 12),
-        const Divider(color: Color(0x1AFFFFFF), height: 1),
+        Divider(
+          color: isDark ? const Color(0x1AFFFFFF) : Colors.black.withValues(alpha: 0.08),
+          height: 1,
+        ),
         const SizedBox(height: 8),
 
         // Volcano list
@@ -376,10 +509,131 @@ class _MapPageState extends State<MapPage> {
               padding: const EdgeInsets.only(bottom: 2),
               child: VolcanoListTile(
                 advisory: advisory,
-                onTap: () => AdvisoryDetailSheet.show(context, advisory),
+                onTap: () {
+                  if (advisory.position != null) {
+                    _mapController.move(advisory.position!, 7.5);
+                  }
+                  AdvisoryDetailSheet.show(context, advisory);
+                },
               ),
             )),
       ],
+    );
+  }
+}
+
+/// Animated user location marker with pulsing blue dot.
+class _UserLocationMarker extends StatefulWidget {
+  const _UserLocationMarker();
+
+  @override
+  State<_UserLocationMarker> createState() => _UserLocationMarkerState();
+}
+
+class _UserLocationMarkerState extends State<_UserLocationMarker>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat();
+    _pulseAnimation = Tween<double>(begin: 0.4, end: 0.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // Pulse ring
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF4285F4).withValues(alpha: _pulseAnimation.value),
+              ),
+            ),
+            // Blue dot
+            Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF4285F4),
+                border: Border.all(color: Colors.white, width: 2.5),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x404285F4),
+                    blurRadius: 6,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Location button.
+class _LocationButton extends StatelessWidget {
+  final bool hasLocation;
+  final bool denied;
+  final VoidCallback onPressed;
+
+  const _LocationButton({
+    required this.hasLocation,
+    required this.denied,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return IconButton(
+      onPressed: onPressed,
+      icon: Icon(
+        hasLocation
+            ? Icons.my_location
+            : (denied ? Icons.location_disabled : Icons.location_searching),
+        color: hasLocation
+            ? const Color(0xFF4285F4)
+            : (isDark ? const Color(0x99FFFFFF) : const Color(0xFF666666)),
+        size: 20,
+      ),
+      style: IconButton.styleFrom(
+        backgroundColor: isDark
+            ? const Color(0xFF141B2D).withValues(alpha: 0.9)
+            : Colors.white.withValues(alpha: 0.9),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: isDark
+              ? const BorderSide(color: Color(0x26FFFFFF), width: 0.5)
+              : BorderSide.none,
+        ),
+        shadowColor: Colors.black26,
+        elevation: 2,
+      ),
     );
   }
 }
@@ -393,23 +647,36 @@ class _RefreshButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return IconButton(
       onPressed: isLoading ? null : onPressed,
       icon: isLoading
-          ? const SizedBox(
+          ? SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Color(0x80FFFFFF),
+                color: isDark ? const Color(0x80FFFFFF) : const Color(0xFF666666),
               ),
             )
-          : const Icon(Icons.refresh, color: Color(0xCCFFFFFF), size: 22),
+          : Icon(
+              Icons.refresh,
+              color: isDark ? const Color(0xCCFFFFFF) : const Color(0xFF444444),
+              size: 22,
+            ),
       style: IconButton.styleFrom(
-        backgroundColor: const Color(0x1AFFFFFF),
+        backgroundColor: isDark
+            ? const Color(0xFF141B2D).withValues(alpha: 0.9)
+            : Colors.white.withValues(alpha: 0.9),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
+          side: isDark
+              ? const BorderSide(color: Color(0x26FFFFFF), width: 0.5)
+              : BorderSide.none,
         ),
+        shadowColor: Colors.black26,
+        elevation: 2,
       ),
     );
   }
@@ -421,33 +688,46 @@ class _LoadingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xCC141B2D),
+        color: isDark
+            ? const Color(0xCC141B2D)
+            : Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(16),
+        border: isDark
+            ? Border.all(color: const Color(0x1AFFFFFF), width: 0.5)
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.1),
+            blurRadius: 20,
+          ),
+        ],
       ),
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(
+          const CircularProgressIndicator(
             strokeWidth: 2.5,
-            color: Color(0xFFFF6B35),
+            color: Color(0xFFE53E3E),
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
             'Loading Advisories',
             style: TextStyle(
-              color: Color(0xCCFFFFFF),
+              color: isDark ? Colors.white : const Color(0xFF1A1A2E),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
             'Fetching from Darwin VAAC…',
             style: TextStyle(
-              color: Color(0x66FFFFFF),
+              color: isDark ? const Color(0x66FFFFFF) : const Color(0xFF888888),
               fontSize: 11,
             ),
           ),

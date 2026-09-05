@@ -74,16 +74,14 @@ class DarwinVaaError extends DarwinVaaState {
 // --- BLoC ---
 
 class DarwinVaaBloc extends Bloc<DarwinVaaEvent, DarwinVaaState> {
-  final GetActiveAdvisories _getActiveAdvisories;
+  final GetActiveAdvisories getActiveAdvisories;
   Timer? _autoRefreshTimer;
 
   /// Auto-refresh interval: 10 minutes.
   static const autoRefreshInterval = Duration(minutes: 10);
 
-  // ignore: prefer_initializing_formals
-  DarwinVaaBloc({required GetActiveAdvisories getActiveAdvisories})
-      : _getActiveAdvisories = getActiveAdvisories,
-        super(const DarwinVaaInitial()) {
+  DarwinVaaBloc({required this.getActiveAdvisories})
+      : super(const DarwinVaaInitial()) {
     on<LoadAdvisories>(_onLoadAdvisories);
     on<RefreshAdvisories>(_onRefreshAdvisories);
     // ignore: no_leading_underscores_for_local_identifiers
@@ -125,7 +123,7 @@ class DarwinVaaBloc extends Bloc<DarwinVaaEvent, DarwinVaaState> {
 
   Future<void> _fetchAdvisories(Emitter<DarwinVaaState> emit) async {
     try {
-      final advisories = await _getActiveAdvisories();
+      final advisories = await getActiveAdvisories();
       final now = DateTime.now().toUtc();
 
       if (advisories.isEmpty) {

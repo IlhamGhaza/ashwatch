@@ -15,6 +15,7 @@ class VolcanoListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = getVolcanoColor(advisory.volcanoName);
 
     return Material(
@@ -40,8 +41,8 @@ class VolcanoListTile extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: color.withValues(alpha: 0.4),
-                      blurRadius: 6,
+                      color: color.withValues(alpha: 0.3),
+                      blurRadius: 4,
                       spreadRadius: 1,
                     ),
                   ],
@@ -55,8 +56,8 @@ class VolcanoListTile extends StatelessWidget {
                   children: [
                     Text(
                       advisory.volcanoName,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF1A1A2E),
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -64,13 +65,15 @@ class VolcanoListTile extends StatelessWidget {
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        _tag(advisory.primaryFlightLevel),
+                        _tag(advisory.primaryFlightLevel, color),
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             advisory.polygonSummary,
-                            style: const TextStyle(
-                              color: Color(0x99FFFFFF),
+                            style: TextStyle(
+                              color: isDark
+                                  ? const Color(0x99FFFFFF)
+                                  : const Color(0xFF1A1A2E).withValues(alpha: 0.5),
                               fontSize: 11,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -81,9 +84,11 @@ class VolcanoListTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right,
-                color: Color(0x66FFFFFF),
+                color: isDark
+                    ? const Color(0x4DFFFFFF)
+                    : const Color(0xFF1A1A2E).withValues(alpha: 0.25),
                 size: 20,
               ),
             ],
@@ -93,19 +98,19 @@ class VolcanoListTile extends StatelessWidget {
     );
   }
 
-  Widget _tag(String text) {
+  Widget _tag(String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0x1AFFFFFF),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Color(0xCCFFFFFF),
+        style: TextStyle(
+          color: color,
           fontSize: 10,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           fontFamily: 'monospace',
         ),
       ),

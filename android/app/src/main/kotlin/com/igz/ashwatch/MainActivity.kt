@@ -1,4 +1,4 @@
-package com.example.ashwatch
+package com.igz.ashwatch
 
 import io.flutter.embedding.android.FlutterActivity
 

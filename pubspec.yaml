@@ -1,7 +1,7 @@
 name: ashwatch
 description: "Darwin VAAC Volcanic Ash Advisory Viewer for Indonesia"
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+3
 
 environment:
   sdk: ^3.13.2
@@ -17,12 +17,29 @@ dependencies:
   flutter_bloc: ^9.1.1
   equatable: ^2.0.7
   intl: ^0.20.2
-  geolocator: ^13.0.2
+  geolocator: ^14.0.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+  change_app_package_name: ^1.4.0
 
 flutter:
   uses-material-design: true
+
+assets:
+    - assets/
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/logo.png"
+  min_sdk_android: 24 # android min sdk min:16, default 21
+  web:
+    generate: false
+  windows:
+    generate: false
+  macos:
+    generate: false

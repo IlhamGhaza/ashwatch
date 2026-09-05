@@ -115,33 +115,28 @@ class VaaParser {
     final estSection = _extractSection(normalized, r'EST VA CLD\s*:');
 
     if (obsSection != null) {
-      final polygon = _parsePolygonSection(obsSection, PolygonType.observed, dtg);
-      if (polygon != null) polygons.add(polygon);
+      polygons.addAll(_parsePolygonSection(obsSection, PolygonType.observed, dtg));
     }
     if (estSection != null) {
-      final polygon = _parsePolygonSection(estSection, PolygonType.estimated, dtg);
-      if (polygon != null) polygons.add(polygon);
+      polygons.addAll(_parsePolygonSection(estSection, PolygonType.estimated, dtg));
     }
 
     // FCST VA CLD +6 HR
     final fcst6Section = _extractSection(normalized, r'FCST VA CLD \+6 HR\s*:');
     if (fcst6Section != null) {
-      final polygon = _parsePolygonSection(fcst6Section, PolygonType.forecast6h, dtg);
-      if (polygon != null) polygons.add(polygon);
+      polygons.addAll(_parsePolygonSection(fcst6Section, PolygonType.forecast6h, dtg));
     }
 
     // FCST VA CLD +12 HR
     final fcst12Section = _extractSection(normalized, r'FCST VA CLD \+12 HR\s*:');
     if (fcst12Section != null) {
-      final polygon = _parsePolygonSection(fcst12Section, PolygonType.forecast12h, dtg);
-      if (polygon != null) polygons.add(polygon);
+      polygons.addAll(_parsePolygonSection(fcst12Section, PolygonType.forecast12h, dtg));
     }
 
     // FCST VA CLD +18 HR
     final fcst18Section = _extractSection(normalized, r'FCST VA CLD \+18 HR\s*:');
     if (fcst18Section != null) {
-      final polygon = _parsePolygonSection(fcst18Section, PolygonType.forecast18h, dtg);
-      if (polygon != null) polygons.add(polygon);
+      polygons.addAll(_parsePolygonSection(fcst18Section, PolygonType.forecast18h, dtg));
     }
 
     return VolcanoAdvisory(
@@ -164,22 +159,40 @@ class VaaParser {
 
   /// Normalize the advisory block text.
   ///
-  /// BoM wraps long lines, so we need to carefully join continuation lines
-  /// while preserving the section structure.
+  /// BoM wraps long lines using `\r\r\n` followed by spaces for continuation.
+  /// We need to join continuation lines back to the previous line to produce
+  /// clean single-line fields for each key-value pair and section.
   String _normalizeBlock(String block) {
-    // Replace \r\n with \n for consistency
-    var text = block.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    // Step 1: Normalize all line endings to \n
+    // BoM uses \r\r\n (double CR + LF) — handle this FIRST before \r\n
+    var text = block
+        .replaceAll('\r\r\n', '\n')
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n');
 
-    // Normalize multiple spaces to single space within lines
-    final lines = text.split('\n');
-    final normalized = <String>[];
+    // Step 2: Remove blank lines
+    final rawLines = text.split('\n');
+    final lines = rawLines.where((l) => l.trim().isNotEmpty).toList();
 
-    for (int i = 0; i < lines.length; i++) {
-      var line = lines[i].trimRight();
-      // Replace multiple spaces with single space
-      line = line.replaceAll(RegExp(r' {2,}'), ' ').trim();
-      normalized.add(line);
+    // Step 3: Join continuation lines (lines starting with whitespace)
+    // back to the previous line. In BoM format, continuation lines start
+    // with 8+ spaces.
+    final joined = <String>[];
+    for (final line in lines) {
+      // If the line starts with whitespace and there's a previous line,
+      // it's a continuation — append to previous
+      if (joined.isNotEmpty && RegExp(r'^\s{2,}').hasMatch(line)) {
+        joined[joined.length - 1] += ' ${line.trim()}';
+      } else {
+        joined.add(line.trim());
+      }
     }
+
+    // Step 4: Normalize multiple spaces to single space within each line
+    final normalized = joined
+        .map((l) => l.replaceAll(RegExp(r' {2,}'), ' ').trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
 
     return normalized.join('\n');
   }
@@ -217,28 +230,43 @@ class VaaParser {
     return content;
   }
 
-  /// Parse a polygon section into an [AshPolygon].
-  AshPolygon? _parsePolygonSection(String section, PolygonType type, DateTime contextDtg) {
+  /// Parse a polygon section into one or more [AshPolygon]s.
+  ///
+  /// A single section like OBS VA CLD can contain multiple sub-polygons
+  /// at different flight levels, e.g.:
+  /// `SFC/FL200 S0459 E10658 - ... MOV E 10KT SFC/FL500 S0714 E10625 - ... MOV W 30KT`
+  List<AshPolygon> _parsePolygonSection(String section, PolygonType type, DateTime contextDtg) {
     // Check for NO VA EXP or VA NOT IDENTIFIABLE
     if (section.contains('NO VA EXP') || section.contains('NOT AVBL') ||
         section.contains('VA NOT IDENTIFIABLE') || section.contains('NOT OBSD')) {
-      return AshPolygon(
+      return [AshPolygon(
         type: type,
         coordinates: [],
         baseFlightLevel: null,
         topFlightLevel: null,
-      );
+      )];
     }
 
-    // Extract flight levels (e.g. "SFC/FL060", "FL050/FL100")
-    final flMatch = RegExp(r'(SFC|FL\d+)\s*/\s*(SFC|FL\d+)').firstMatch(section);
-    final baseFL = flMatch?.group(1);
-    final topFL = flMatch?.group(2);
+    // Split the section into sub-polygons by flight level tokens.
+    // Each sub-polygon starts with a flight level like SFC/FL060 or FL050/FL100.
+    final flPattern = RegExp(r'(?=(SFC|FL\d+)\s*/\s*(SFC|FL\d+))');
+    final flMatches = flPattern.allMatches(section).toList();
 
-    // Extract movement info (e.g. "MOV NW 05KT", "MOV W 10KT")
-    final movMatch = RegExp(r'MOV\s+([A-Z]+)\s+(\d+)\s*KT').firstMatch(section);
-    final movDir = movMatch?.group(1);
-    final movSpd = movMatch != null ? '${movMatch.group(2)} KT' : null;
+    if (flMatches.isEmpty) {
+      // No flight level found; try to parse entire section as one polygon
+      final coords = parsePolygonCoordinates(section);
+      if (coords.isEmpty) return [];
+
+      final movMatch = RegExp(r'MOV\s+([A-Z]+)\s+(\d+)\s*KT').firstMatch(section);
+      return [AshPolygon(
+        type: type,
+        coordinates: coords,
+        baseFlightLevel: null,
+        topFlightLevel: null,
+        movementDirection: movMatch?.group(1),
+        movementSpeed: movMatch != null ? '${movMatch.group(2)} KT' : null,
+      )];
+    }
 
     // Extract valid time for forecast sections
     DateTime? validTime;
@@ -247,17 +275,37 @@ class VaaParser {
       validTime = parseForecastDtg('${timeMatch.group(1)}Z', contextDtg);
     }
 
-    // Extract polygon coordinates
-    final coordinates = parsePolygonCoordinates(section);
+    final results = <AshPolygon>[];
 
-    return AshPolygon(
-      type: type,
-      coordinates: coordinates,
-      validTime: validTime,
-      baseFlightLevel: baseFL,
-      topFlightLevel: topFL,
-      movementDirection: movDir,
-      movementSpeed: movSpd,
-    );
+    for (int i = 0; i < flMatches.length; i++) {
+      final start = flMatches[i].start;
+      final end = i + 1 < flMatches.length ? flMatches[i + 1].start : section.length;
+      final subSection = section.substring(start, end).trim();
+
+      // Extract flight level from this sub-section
+      final flMatch = RegExp(r'(SFC|FL\d+)\s*/\s*(SFC|FL\d+)').firstMatch(subSection);
+      final baseFL = flMatch?.group(1);
+      final topFL = flMatch?.group(2);
+
+      // Extract movement info
+      final movMatch = RegExp(r'MOV\s+([A-Z]+)\s+(\d+)\s*KT').firstMatch(subSection);
+      final movDir = movMatch?.group(1);
+      final movSpd = movMatch != null ? '${movMatch.group(2)} KT' : null;
+
+      // Extract coordinates
+      final coords = parsePolygonCoordinates(subSection);
+
+      results.add(AshPolygon(
+        type: type,
+        coordinates: coords,
+        validTime: validTime,
+        baseFlightLevel: baseFL,
+        topFlightLevel: topFL,
+        movementDirection: movDir,
+        movementSpeed: movSpd,
+      ));
+    }
+
+    return results;
   }
 }
