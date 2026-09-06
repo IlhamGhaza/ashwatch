@@ -31,7 +31,7 @@ export function Navbar() {
         >
           <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-red-500 to-amber-600 shadow-md shadow-red-500/20">
             <Image
-              src="/logo.png"
+              src="/logo_vercel.png"
               alt="AshWatch Logo"
               width={36}
               height={36}

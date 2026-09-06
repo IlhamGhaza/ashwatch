@@ -40,7 +40,7 @@
       ]
     },
     {
-      "source": "/logo.png",
+      "source": "/(logo.png|logo_vercel.png|favicon.ico)",
       "headers": [
         {
           "key": "Cache-Control",
