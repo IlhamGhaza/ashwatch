@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { VolcanoAdvisory, LatLng } from '@/lib/types';
 import { checkLocationAshStatus, LocationCheckResult } from '@/lib/geo-checker';
 import { searchIndonesiaPlaces, IndonesiaPlace } from '@/lib/indonesia-places';
+import { getMagmaVolcanoStatus } from '@/lib/magma-status';
 import {
   MapPin,
   Crosshair,
@@ -292,30 +293,43 @@ export function CheckMyAreaCard({
                 This location is currently inside an active volcanic ash area.
               </h3>
 
-              <div className="mt-3 space-y-1.5 text-xs text-[#F5F7FA]">
-                <div className="flex justify-between py-1 border-b border-white/10">
-                  <span className="text-[#8B95A7]">Volcano:</span>
-                  <strong className="text-white">{result.affectedVolcano}</strong>
-                </div>
-                <div className="flex justify-between py-1 border-b border-white/10">
-                  <span className="text-[#8B95A7]">Status:</span>
-                  <span className="font-bold text-[#FF6B1A]">Observed</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-white/10">
-                  <span className="text-[#8B95A7]">Ash Altitude:</span>
-                  <span className="font-semibold text-white">
-                    {result.flightLevel} ({result.humanAltitude})
-                  </span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-white/10">
-                  <span className="text-[#8B95A7]">Movement:</span>
-                  <span className="text-amber-300 font-semibold">{result.humanMovement}</span>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span className="text-[#8B95A7]">Valid:</span>
-                  <span className="text-slate-300">{result.validTime}</span>
-                </div>
-              </div>
+              {(() => {
+                const magmaStatus = result.affectedVolcano ? getMagmaVolcanoStatus(result.affectedVolcano) : null;
+                return (
+                  <div className="mt-3 space-y-1.5 text-xs text-[#F5F7FA]">
+                    <div className="flex justify-between py-1 border-b border-white/10">
+                      <span className="text-[#8B95A7]">Gunung Api:</span>
+                      <strong className="text-white">{result.affectedVolcano}</strong>
+                    </div>
+                    {magmaStatus && (
+                      <div className="flex justify-between py-1 border-b border-white/10">
+                        <span className="text-[#8B95A7]">Status MAGMA ESDM:</span>
+                        <span className="font-bold" style={{ color: magmaStatus.color }}>
+                          {magmaStatus.levelRoman} ({magmaStatus.levelName})
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between py-1 border-b border-white/10">
+                      <span className="text-[#8B95A7]">Status Abu:</span>
+                      <span className="font-bold text-[#FF6B1A]">Teramati (Observed)</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-white/10">
+                      <span className="text-[#8B95A7]">Ketinggian Abu:</span>
+                      <span className="font-semibold text-white">
+                        {result.flightLevel} ({result.humanAltitude})
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-white/10">
+                      <span className="text-[#8B95A7]">Arah Pergerakan:</span>
+                      <span className="text-amber-300 font-semibold">{result.humanMovement}</span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-[#8B95A7]">Masa Berlaku:</span>
+                      <span className="text-slate-300">Buletin Terkini</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="mt-4 flex items-center justify-between pt-2">
                 <span className="text-[10px] text-[#8B95A7]">

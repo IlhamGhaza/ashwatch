@@ -146,8 +146,10 @@ export default function DataSourcesPage() {
           </div>
 
           <p className="text-xs sm:text-sm text-[#8B95A7] leading-relaxed">
-            Pusat Vulkanologi dan Mitigasi Bencana Geologi (PVMBG) under the Ministry of Energy and Mineral
-            Resources provides official on-the-ground seismic, visual webcam, and volcano status reports.
+            Pusat Vulkanologi dan Mitigasi Bencana Geologi (PVMBG) di bawah Badan Geologi Kementerian ESDM menyediakan
+            laporan resmi status tingkat aktivitas gunung api di Indonesia (Level I Normal, Level II Waspada, Level III Siaga,
+            Level IV Awas) serta rekomendasi radius bahaya. Status aktivitas ini diintegrasikan dan divisualisasikan langsung
+            pada pin gunung api, tooltip, dan panel rincian di peta interaktif AshWatch.
           </p>
         </div>
 

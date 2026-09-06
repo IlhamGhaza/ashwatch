@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { Map as LeafletMap } from 'leaflet';
 import { VolcanoAdvisory } from '@/lib/types';
 import { LAYER_COLORS } from '@/lib/palette';
+import { getMagmaVolcanoStatus } from '@/lib/magma-status';
 import { Map, ArrowRight, Loader2 } from 'lucide-react';
 
 interface IndonesiaMiniMapProps {
@@ -60,11 +61,13 @@ export function IndonesiaMiniMap({ advisories }: IndonesiaMiniMapProps) {
         if (adv.position) {
           const lat = adv.position.latitude;
           const lng = adv.position.longitude;
+          const magmaStatus = getMagmaVolcanoStatus(adv.volcanoName);
+
           const markerHtml = `
             <div class="flex flex-col items-center select-none" style="transform: translate(-50%, -50%);">
-              <div class="relative flex h-5 w-5 items-center justify-center rounded-full bg-[#111827] shadow-lg border border-[#FF6B1A]">
-                <span class="pulse-marker-ring" style="background-color: #FF6B1A30; border: 1px solid #FF6B1A80;"></span>
-                <div class="h-2 w-2 rounded-full bg-[#FF6B1A]"></div>
+              <div class="relative flex h-5 w-5 items-center justify-center rounded-full bg-[#111827] shadow-lg border" style="border-color: ${magmaStatus.color};">
+                <span class="pulse-marker-ring" style="background-color: ${magmaStatus.ringColor}; border: 1px solid ${magmaStatus.color};"></span>
+                <div class="h-2 w-2 rounded-full" style="background-color: ${magmaStatus.color};"></div>
               </div>
               <div class="mt-0.5 whitespace-nowrap rounded px-1.5 py-0.2 text-center bg-[#0B0F17]/90 border border-white/10 shadow-sm">
                 <span style="color: #F5F7FA; font-size: 8.5px; font-weight: 700; display: block; line-height: 1;">

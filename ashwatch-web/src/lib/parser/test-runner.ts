@@ -116,5 +116,39 @@ assert(formatFlightLevelHuman('FL150').includes('15,000 ft'), 'FL150 format fail
 assert(formatMovementHuman('MOV NW 05KT').includes('Northwest'), 'Movement NW format failed');
 console.log('✓ Geo Checker and Aviation Format tests passed!');
 
+console.log('--- Testing MAGMA ESDM Volcano Activity Status ---');
+import { getMagmaVolcanoStatus } from '../magma-status';
+
+const krakatauStatus = getMagmaVolcanoStatus('KRAKATAU');
+assert(krakatauStatus.level === 3, 'Krakatau should be Level III');
+assert(krakatauStatus.levelName === 'Siaga', 'Krakatau levelName should be Siaga');
+console.log(`  - Krakatau status: ${krakatauStatus.levelRoman} (${krakatauStatus.levelName}) [Color: ${krakatauStatus.color}]`);
+
+const semeruStatus = getMagmaVolcanoStatus('SEMERU');
+assert(semeruStatus.level === 3, 'Semeru should be Level III');
+assert(semeruStatus.levelName === 'Siaga', 'Semeru levelName should be Siaga');
+console.log(`  - Semeru status: ${semeruStatus.levelRoman} (${semeruStatus.levelName})`);
+
+const lewotobiStatus = getMagmaVolcanoStatus('LEWOTOBI LAKI-LAKI');
+assert(lewotobiStatus.level === 4, 'Lewotobi Laki-laki should match Level IV');
+assert(lewotobiStatus.levelName === 'Awas', 'Lewotobi levelName should be Awas');
+console.log(`  - Lewotobi status: ${lewotobiStatus.levelRoman} (${lewotobiStatus.levelName}) [Color: ${lewotobiStatus.color}]`);
+
+const dukonoStatus = getMagmaVolcanoStatus('DUKONO');
+assert(dukonoStatus.level === 2, 'Dukono should be Level II');
+assert(dukonoStatus.levelName === 'Waspada', 'Dukono levelName should be Waspada');
+console.log(`  - Dukono status: ${dukonoStatus.levelRoman} (${dukonoStatus.levelName})`);
+
+const keludStatus = getMagmaVolcanoStatus('KELUD');
+assert(keludStatus.level === 1, 'Kelud should be Level I');
+assert(keludStatus.levelName === 'Normal', 'Kelud levelName should be Normal');
+console.log(`  - Kelud status: ${keludStatus.levelRoman} (${keludStatus.levelName})`);
+
+const fallbackStatus = getMagmaVolcanoStatus('GUNUNG_TESTING_BARU');
+assert(fallbackStatus.level === 2, 'Fallback should be Level II Waspada');
+
+console.log('✓ MAGMA ESDM volcano activity status tests passed!');
+
 console.log('🎉 ALL TESTS PASSED SUCCESSFULLY!');
+
 
