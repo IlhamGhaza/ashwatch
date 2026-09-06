@@ -46,6 +46,7 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
 
   const [filterQuery, setFilterQuery] = useState('');
   const [isLocating, setIsLocating] = useState(false);
+  const [isMapReady, setIsMapReady] = useState(false);
 
   // Auto-select Krakatau or first advisory with polygons on initial load
   useEffect(() => {
@@ -112,12 +113,14 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
 
       // Fit bounds to show active volcano positions and nearby ash clouds
       fitAllAdvisories(map, advisories);
+      setIsMapReady(true);
     }
 
     initMap();
 
     return () => {
       isMounted = false;
+      setIsMapReady(false);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -125,8 +128,10 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
     };
   }, []);
 
-  // Update Polygons & Markers when advisories or activeLayers change
+  // Update Polygons & Markers when advisories, activeLayers, or isMapReady change
   useEffect(() => {
+    if (!isMapReady) return;
+
     async function updateLayers() {
       const map = mapInstanceRef.current;
       const polyGroup = polygonLayerGroupRef.current;
@@ -172,6 +177,17 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
           });
 
           const marker = L.marker([lat, lng], { icon: customIcon });
+
+          marker.bindTooltip(
+            `
+              <div class="text-center">
+                <div class="font-bold text-red-400">${advisory.volcanoName}</div>
+                <div class="text-[10px] text-slate-200">Alt: ${advisory.primaryFlightLevel}</div>
+                <div class="text-[10px] text-amber-300">Mov: ${advisory.primaryMovement}</div>
+              </div>
+            `,
+            { direction: 'top', offset: [0, -16], className: 'leaflet-tooltip' }
+          );
 
           marker.on('click', () => {
             setSelectedAdvisory(advisory);
@@ -232,15 +248,20 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
               labelHtml = `<div class="ash-polygon-center-label">${fl}<br/>${mov}</div>`;
             } else if (fl) {
               labelHtml = `<div class="ash-polygon-center-label">${fl}</div>`;
-            } else {
-              labelHtml = `<div class="ash-polygon-center-label">${advisory.volcanoName}</div>`;
             }
 
-            polygon.bindTooltip(labelHtml, {
-              permanent: true,
-              direction: 'center',
-              className: 'ash-polygon-center-label',
-            });
+            if (labelHtml) {
+              const center = polygon.getBounds().getCenter();
+              const centerMarker = L.marker(center, {
+                icon: L.divIcon({
+                  html: labelHtml,
+                  className: 'ash-polygon-center-label-wrapper',
+                  iconSize: [0, 0],
+                }),
+                interactive: false,
+              });
+              polyGroup.addLayer(centerMarker);
+            }
           }
 
           // Sticky hover tooltip with full layer details
@@ -272,7 +293,7 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
     }
 
     updateLayers();
-  }, [filteredAdvisories, activeLayers]);
+  }, [filteredAdvisories, activeLayers, isMapReady]);
 
   // Fit bounds helper focusing on Indonesia & active plumes
   const fitAllAdvisories = async (map: LeafletMap, advs: VolcanoAdvisory[]) => {

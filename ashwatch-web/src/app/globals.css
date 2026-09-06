@@ -62,6 +62,13 @@ body {
 }
 
 /* Permanent center label inside ash polygons matching Flutter reference */
+.ash-polygon-center-label-wrapper {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+}
+
 .ash-polygon-center-label {
   background: transparent !important;
   border: none !important;
@@ -75,6 +82,8 @@ body {
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.85) !important;
   pointer-events: none !important;
   padding: 0 !important;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
 }
 
 .ash-polygon-center-label::before {
