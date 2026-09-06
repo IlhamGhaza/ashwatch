@@ -1,21 +1,16 @@
 import { PolygonType } from './types';
 
-/**
- * Orange-scale volcanic palette — professional aviation monitoring aesthetic.
- * Warm amber-to-burnt-orange progression for clear differentiation
- * against dark navy map background.
- */
 export const VOLCANO_PALETTE: string[] = [
-  '#e8731a', // volcanic orange (primary)
-  '#d4610a', // burnt orange
-  '#f59e0b', // amber
-  '#ea8c2a', // golden orange
-  '#c2530a', // deep burnt
-  '#e06820', // flame orange
-  '#d97706', // dark amber
-  '#f97316', // bright orange
-  '#b45309', // bronze
-  '#ef8b2c', // warm tangerine
+  '#E53E3E', // red
+  '#DD6B20', // dark orange
+  '#D53F8C', // pink
+  '#C53030', // dark red
+  '#E25353', // coral red
+  '#B83280', // magenta
+  '#ED6436', // burnt orange
+  '#CB3A5F', // rose
+  '#D44A4A', // crimson
+  '#E2683C', // tangerine
 ];
 
 /**
@@ -33,13 +28,13 @@ export function getVolcanoColor(volcanoName: string): string {
 }
 
 export const POLYGON_OPACITIES: Record<PolygonType, number> = {
-  observed: 0.50,
-  estimated: 0.50,
-  forecast6h: 0.35,
-  forecast12h: 0.22,
-  forecast18h: 0.14,
+  observed: 0.55,
+  estimated: 0.55,
+  forecast6h: 0.40,
+  forecast12h: 0.28,
+  forecast18h: 0.18,
 };
 
 export function getPolygonOpacity(type: PolygonType): number {
-  return POLYGON_OPACITIES[type] ?? 0.30;
+  return POLYGON_OPACITIES[type] ?? 0.35;
 }

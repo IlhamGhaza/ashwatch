@@ -94,18 +94,20 @@ export function formatUtcDateTime(date: Date | string): string {
 
 /**
  * Formats a Date object to Indonesian Western Time (WIB / UTC+7)
+ * Deterministic implementation to avoid SSR/hydration mismatch across locales.
  */
 export function formatWibDateTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(d.getTime())) return 'Invalid date';
 
-  return new Intl.DateTimeFormat('id-ID', {
-    timeZone: 'Asia/Jakarta',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(d) + ' WIB';
+  const wibTime = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = pad(wibTime.getUTCDate());
+  const month = months[wibTime.getUTCMonth()];
+  const year = wibTime.getUTCFullYear();
+  const hour = pad(wibTime.getUTCHours());
+  const min = pad(wibTime.getUTCMinutes());
+
+  return `${day} ${month} ${year}, ${hour}:${min} WIB`;
 }

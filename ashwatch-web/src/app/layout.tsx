@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Navbar } from '@/components/navbar';
+import { Footer } from '@/components/footer';
 import { JsonLd, getRootJsonLd } from '@/components/json-ld';
 import { SITE_CONFIG, SITE_URL } from '@/config/site';
-import FooterConditional from './footer-conditional';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -73,7 +73,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0a1628',
+  themeColor: SITE_CONFIG.themeColor,
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
@@ -87,22 +87,17 @@ export default function RootLayout({
   const rootSchemas = getRootJsonLd();
 
   return (
-    <html lang="en" className="dark">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap"
-          rel="stylesheet"
-        />
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body
+        suppressHydrationWarning
+        className="min-h-screen bg-slate-950 text-slate-100 antialiased flex flex-col selection:bg-red-500 selection:text-white"
+      >
         {rootSchemas.map((schema, i) => (
           <JsonLd key={i} data={schema} />
         ))}
-      </head>
-      <body className="min-h-screen bg-[#0a1628] text-[#e8edf5] antialiased flex flex-col selection:bg-orange-500 selection:text-white">
         <Navbar />
         <main className="flex-1">{children}</main>
-        <FooterConditional />
+        <Footer />
       </body>
     </html>
   );
