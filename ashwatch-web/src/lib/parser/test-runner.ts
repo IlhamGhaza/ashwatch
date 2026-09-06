@@ -63,10 +63,10 @@ console.log('✓ Single advisory test passed!');
 
 console.log('--- Testing VAA Parser Multiple Advisories & Deduplication ---');
 const multiResult = vaaParser.parse(MULTIPLE_ADVISORIES_FIXTURE);
-assert(multiResult.length === 4, `Expected 4 advisories, got ${multiResult.length}`);
+assert(multiResult.length === 5, `Expected 5 advisories, got ${multiResult.length}`);
 
 const deduplicated = vaaParser.deduplicateByVolcano(multiResult);
-assert(deduplicated.length === 4, `Expected 4 unique volcanoes, got ${deduplicated.length}`);
+assert(deduplicated.length === 5, `Expected 5 unique volcanoes, got ${deduplicated.length}`);
 
 console.log('✓ Multiple advisories test passed!');
 console.log('🎉 ALL VAA PARSER TESTS PASSED SUCCESSFULLY!');
