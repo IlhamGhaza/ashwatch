@@ -17,14 +17,16 @@ export interface AdvisoriesResponse {
  * Fetch and parse Darwin VAAC volcanic ash advisories.
  * Used by Server Components and API Route handlers with ISR caching.
  */
-export async function getDarwinAdvisories(): Promise<AdvisoriesResponse> {
+export async function getDarwinAdvisories(forceFresh = false): Promise<AdvisoriesResponse> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
     const res = await fetch(BOM_URL, {
       signal: controller.signal,
-      next: { revalidate: 600 }, // Cache for 10 minutes on Vercel
+      ...(forceFresh
+        ? { cache: 'no-store' }
+        : { next: { revalidate: 300 } }), // Cache 5 minutes
       headers: {
         'User-Agent':
           'AshWatch/1.0 (+https://ashwatch.vercel.app; research & monitoring)',

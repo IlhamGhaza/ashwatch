@@ -1,16 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getDarwinAdvisories } from '@/lib/advisories';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 600; // 10 minutes cache
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const data = await getDarwinAdvisories();
+    const searchParams = request.nextUrl.searchParams;
+    const isFresh = searchParams.has('t') || searchParams.has('fresh');
+    const data = await getDarwinAdvisories(isFresh);
     return NextResponse.json(data, {
       status: 200,
       headers: {
-        'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200',
+        'Cache-Control': isFresh
+          ? 'no-store, max-age=0'
+          : 'public, s-maxage=300, stale-while-revalidate=600',
       },
     });
   } catch (error) {

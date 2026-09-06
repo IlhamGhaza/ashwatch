@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { VolcanoAdvisory } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 
@@ -22,6 +22,49 @@ interface MapWrapperProps {
   isLoading?: boolean;
 }
 
-export function MapWrapper(props: MapWrapperProps) {
-  return <DynamicAshMap {...props} />;
+export function MapWrapper({ advisories: initialAdvisories }: { advisories: VolcanoAdvisory[] }) {
+  const [advisories, setAdvisories] = useState<VolcanoAdvisory[]>(initialAdvisories);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Sync state if initial advisories change
+  useEffect(() => {
+    if (initialAdvisories && initialAdvisories.length > 0) {
+      setAdvisories(initialAdvisories);
+    }
+  }, [initialAdvisories]);
+
+  // Real-time client-side refresh function
+  const handleRefresh = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/advisories?fresh=1&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.deduplicated && data.deduplicated.length > 0) {
+          setAdvisories(data.deduplicated);
+        }
+      }
+    } catch (err) {
+      console.warn('Real-time advisories update failed:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Background auto-polling every 3 minutes for live real-time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      handleRefresh();
+    }, 3 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [handleRefresh]);
+
+  return (
+    <DynamicAshMap
+      advisories={advisories}
+      onRefresh={handleRefresh}
+      isLoading={isLoading}
+    />
+  );
 }
