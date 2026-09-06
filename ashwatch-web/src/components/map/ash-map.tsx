@@ -4,18 +4,15 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import type { Map as LeafletMap, LayerGroup } from 'leaflet';
 import { VolcanoAdvisory, AshPolygon, PolygonType } from '@/lib/types';
 import { getVolcanoColor, getPolygonOpacity } from '@/lib/palette';
-import { formatUtcDateTime, formatWibDateTime } from '@/lib/parser/date-utils';
+import { formatWibDateTime } from '@/lib/parser/date-utils';
 import {
   Crosshair,
+  Maximize2,
   RefreshCw,
-  Wind,
-  Flame,
   X,
   ExternalLink,
   ChevronRight,
-  ChevronUp,
-  ChevronDown,
-  Layers,
+  Filter,
 } from 'lucide-react';
 
 interface AshMapProps {
@@ -31,10 +28,50 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
   const markerLayerGroupRef = useRef<LayerGroup | null>(null);
   const userLocationLayerRef = useRef<LayerGroup | null>(null);
 
+  // Selected volcano advisory (for the bottom-right card)
   const [selectedAdvisory, setSelectedAdvisory] = useState<VolcanoAdvisory | null>(null);
-  const [isSheetExpanded, setIsSheetExpanded] = useState(true);
-  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Layer visibility toggles (Observed, +6h, +12h, +18h)
+  const [activeLayers, setActiveLayers] = useState<{
+    observed: boolean;
+    forecast6h: boolean;
+    forecast12h: boolean;
+    forecast18h: boolean;
+  }>({
+    observed: true,
+    forecast6h: true,
+    forecast12h: true,
+    forecast18h: true,
+  });
+
+  const [filterQuery, setFilterQuery] = useState('');
   const [isLocating, setIsLocating] = useState(false);
+
+  // Auto-select Krakatau or first advisory with polygons on initial load
+  useEffect(() => {
+    if (!selectedAdvisory && advisories.length > 0) {
+      const krakatau = advisories.find(
+        (a) => a.volcanoName.toUpperCase() === 'KRAKATAU'
+      );
+      const target =
+        krakatau ||
+        advisories.find((a) => a.polygons.some((p) => p.coordinates.length >= 3)) ||
+        advisories[0];
+      setSelectedAdvisory(target);
+    }
+  }, [advisories, selectedAdvisory]);
+
+  // Filter advisories by search query
+  const filteredAdvisories = useMemo(() => {
+    if (!filterQuery.trim()) return advisories;
+    const q = filterQuery.toLowerCase();
+    return advisories.filter(
+      (a) =>
+        a.volcanoName.toLowerCase().includes(q) ||
+        a.primaryFlightLevel.toLowerCase().includes(q) ||
+        a.advisoryNumber.toLowerCase().includes(q)
+    );
+  }, [advisories, filterQuery]);
 
   // Initialize Leaflet Map
   useEffect(() => {
@@ -46,22 +83,23 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
       const L = (await import('leaflet')).default;
       if (!isMounted || !mapContainerRef.current) return;
 
-      // Clean standard OpenStreetMap basemap
+      // Center comfortably on Western Indonesia (Sumatra, Sunda Strait, Java)
       const map = L.map(mapContainerRef.current, {
-        center: [-3.5, 104.0],
+        center: [-4.0, 106.0],
         zoom: 5.5,
         minZoom: 3,
         maxZoom: 18,
         zoomControl: false,
       });
 
+      // Official OpenStreetMap tile layer (clean light map)
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
         maxZoom: 19,
       }).addTo(map);
 
-      L.control.zoom({ position: 'topright' }).addTo(map);
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
 
       const polyGroup = L.layerGroup().addTo(map);
       const markerGroup = L.layerGroup().addTo(map);
@@ -72,7 +110,7 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
       userLocationLayerRef.current = userGroup;
       mapInstanceRef.current = map;
 
-      // Fit bounds if advisories exist
+      // Fit bounds to show active volcano positions and nearby ash clouds
       fitAllAdvisories(map, advisories);
     }
 
@@ -87,7 +125,7 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
     };
   }, []);
 
-  // Update Polygons & Markers
+  // Update Polygons & Markers when advisories or activeLayers change
   useEffect(() => {
     async function updateLayers() {
       const map = mapInstanceRef.current;
@@ -101,23 +139,17 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
       polyGroup.clearLayers();
       markerGroup.clearLayers();
 
-      advisories.forEach((advisory) => {
+      filteredAdvisories.forEach((advisory) => {
         const volcanoColor = getVolcanoColor(advisory.volcanoName);
 
-        // Render Volcano Marker matching Image 2
+        // 1. Render Volcano Marker matching Image 2 (Circle disk + Material Volcano icon + white name pill)
         if (advisory.position) {
           const lat = advisory.position.latitude;
           const lng = advisory.position.longitude;
 
-          // Find movement if available
-          const primaryPoly = advisory.polygons.find((p) => p.coordinates.length > 0);
-          const movText = primaryPoly?.movementDirection && primaryPoly?.movementSpeed
-            ? `${primaryPoly.movementDirection} ${primaryPoly.movementSpeed}`
-            : '';
-
           const markerHtml = `
             <div class="flex flex-col items-center cursor-pointer select-none" style="transform: translate(-50%, -50%);">
-              <div class="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md border" style="border-color: ${volcanoColor}40; box-shadow: 0 0 10px ${volcanoColor}80;">
+              <div class="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md border" style="border-color: ${volcanoColor}50; box-shadow: 0 0 10px ${volcanoColor}99;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="${volcanoColor}">
                   <path d="M18 20H6l4.5-9h3L18 20z"/>
                   <circle cx="12" cy="5" r="2"/>
@@ -125,7 +157,7 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
                   <circle cx="15.5" cy="7" r="1.5"/>
                 </svg>
               </div>
-              <div class="mt-1 whitespace-nowrap rounded px-1.5 py-0.5 shadow-sm text-center border border-black/5" style="background-color: rgba(255, 255, 255, 0.92); box-shadow: 0 1px 3px rgba(0,0,0,0.25);">
+              <div class="mt-1 whitespace-nowrap rounded px-1.5 py-0.5 shadow-sm text-center border border-black/5" style="background-color: rgba(255, 255, 255, 0.95); box-shadow: 0 1px 3px rgba(0,0,0,0.25);">
                 <span style="color: ${volcanoColor}; font-size: 9px; font-weight: 700; letter-spacing: 0.3px; display: block; line-height: 1.1;">
                   ${advisory.volcanoName}
                 </span>
@@ -143,13 +175,13 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
 
           marker.on('click', () => {
             setSelectedAdvisory(advisory);
-            map.flyTo([lat, lng], 7.5, { duration: 1 });
+            map.flyTo([lat, lng], 6.5, { duration: 1.2 });
           });
 
           markerGroup.addLayer(marker);
         }
 
-        // Render Ash Polygons
+        // 2. Render Ash Polygons with stacked opacities and centered labels matching Image 2
         // Sort order: +18h, +12h, +6h, observed/estimated on top
         const sortedPolygons = [...advisory.polygons].sort((a, b) => {
           const order: Record<PolygonType, number> = {
@@ -164,6 +196,13 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
 
         sortedPolygons.forEach((ashPoly) => {
           if (ashPoly.coordinates.length < 3) return;
+
+          // Check if layer is toggled on
+          if (ashPoly.type === 'observed' && !activeLayers.observed) return;
+          if (ashPoly.type === 'estimated' && !activeLayers.observed) return;
+          if (ashPoly.type === 'forecast6h' && !activeLayers.forecast6h) return;
+          if (ashPoly.type === 'forecast12h' && !activeLayers.forecast12h) return;
+          if (ashPoly.type === 'forecast18h' && !activeLayers.forecast18h) return;
 
           const latLngs: [number, number][] = ashPoly.coordinates.map((c) => [
             c.latitude,
@@ -180,23 +219,48 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
             fillOpacity: opacity,
           });
 
-          // Permanent center label matching Image 2 for observed polygons
+          // Permanent bold center label inside observed/estimated polygons (e.g. FL500 \n W 30 KT) matching Image 2
           if (ashPoly.type === 'observed' || ashPoly.type === 'estimated') {
             const fl = ashPoly.topFlightLevel || '';
-            const mov = ashPoly.movementDirection && ashPoly.movementSpeed
-              ? `${ashPoly.movementDirection} ${ashPoly.movementSpeed}`
-              : (ashPoly.movementDirection || '');
-            const labelText = fl && mov ? `${fl}<br/>${mov}` : (fl || advisory.volcanoName);
+            const mov =
+              ashPoly.movementDirection && ashPoly.movementSpeed
+                ? `${ashPoly.movementDirection} ${ashPoly.movementSpeed}`
+                : (ashPoly.movementDirection || '');
 
-            polygon.bindTooltip(
-              `<div class="ash-polygon-center-label">${labelText}</div>`,
-              {
-                permanent: true,
-                direction: 'center',
-                className: 'ash-polygon-center-label',
-              }
-            );
+            let labelHtml = '';
+            if (fl && mov) {
+              labelHtml = `<div class="ash-polygon-center-label">${fl}<br/>${mov}</div>`;
+            } else if (fl) {
+              labelHtml = `<div class="ash-polygon-center-label">${fl}</div>`;
+            } else {
+              labelHtml = `<div class="ash-polygon-center-label">${advisory.volcanoName}</div>`;
+            }
+
+            polygon.bindTooltip(labelHtml, {
+              permanent: true,
+              direction: 'center',
+              className: 'ash-polygon-center-label',
+            });
           }
+
+          // Sticky hover tooltip with full layer details
+          const flLabel = ashPoly.topFlightLevel
+            ? `${ashPoly.baseFlightLevel || 'SFC'} → ${ashPoly.topFlightLevel}`
+            : advisory.primaryFlightLevel;
+          const movLabel = ashPoly.movementDirection
+            ? `${ashPoly.movementDirection} ${ashPoly.movementSpeed || ''}`
+            : '';
+
+          polygon.bindTooltip(
+            `
+              <div class="text-center">
+                <div class="font-bold text-red-400">${advisory.volcanoName} [${ashPoly.type.toUpperCase()}]</div>
+                <div class="text-[10px] text-slate-200">Alt: ${flLabel}</div>
+                ${movLabel ? `<div class="text-[10px] text-amber-300">Mov: ${movLabel}</div>` : ''}
+              </div>
+            `,
+            { sticky: true, className: 'leaflet-tooltip' }
+          );
 
           polygon.on('click', () => {
             setSelectedAdvisory(advisory);
@@ -208,9 +272,9 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
     }
 
     updateLayers();
-  }, [advisories]);
+  }, [filteredAdvisories, activeLayers]);
 
-  // Fit bounds helper matching Indonesian archipelago view
+  // Fit bounds helper focusing on Indonesia & active plumes
   const fitAllAdvisories = async (map: LeafletMap, advs: VolcanoAdvisory[]) => {
     const L = (await import('leaflet')).default;
     const points: [number, number][] = [];
@@ -229,7 +293,7 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
 
     if (points.length > 0) {
       const bounds = L.latLngBounds(points);
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 6.5 });
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 6.5 });
     }
   };
 
@@ -241,7 +305,6 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
-        setUserCoords({ lat: latitude, lng: longitude });
         setIsLocating(false);
 
         const L = (await import('leaflet')).default;
@@ -278,261 +341,244 @@ export default function AshMap({ advisories, onRefresh, isLoading }: AshMapProps
     );
   };
 
+  // Fullscreen toggle
+  const handleToggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      mapContainerRef.current?.parentElement?.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
   return (
-    <div className="relative h-full w-full overflow-hidden bg-slate-100">
-      {/* Map Canvas Container */}
+    <div className="relative h-full w-full overflow-hidden bg-slate-950">
+      {/* Map Canvas */}
       <div ref={mapContainerRef} className="h-full w-full" />
 
-      {/* Top Header matching Image 2 */}
-      <div className="absolute top-4 left-4 right-4 z-[400] flex items-center justify-between pointer-events-none sm:left-6 sm:right-6">
-        {/* Title */}
-        <div className="pointer-events-auto rounded-2xl bg-white/95 px-4 py-2.5 shadow-xl border border-slate-200/80 backdrop-blur-md">
-          <h1 className="text-lg font-black text-slate-900 leading-tight">
-            Volcanic Ash
-          </h1>
-          <p className="text-xs font-semibold text-slate-500">
-            Darwin VAAC
-          </p>
-        </div>
-
-        {/* Action Buttons matching Image 2 */}
-        <div className="pointer-events-auto flex items-center gap-2">
-          <button
-            onClick={handleLocateUser}
-            disabled={isLocating}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-blue-600 shadow-xl border border-slate-200 hover:bg-slate-50 transition active:scale-95"
-            title="Locate my position (GPS)"
-            aria-label="Locate me"
-          >
-            <Crosshair className={`h-5 w-5 ${isLocating ? 'animate-pulse text-blue-400' : ''}`} />
-          </button>
-
-          {onRefresh && (
-            <button
-              onClick={onRefresh}
-              disabled={isLoading}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-xl border border-slate-200 hover:bg-slate-50 transition active:scale-95 disabled:opacity-50"
-              title="Refresh Darwin VAAC advisories"
-              aria-label="Refresh data"
-            >
-              <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin text-red-500' : ''}`} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Floating Ash Layers Legend (Bottom Left) matching Image 2 */}
-      <div className="absolute bottom-44 left-4 z-[400] sm:bottom-48 sm:left-6 pointer-events-auto">
-        <div className="rounded-xl bg-white/95 p-3 shadow-xl border border-slate-200/80 backdrop-blur-md">
-          <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">
-            ASH LAYERS
+      {/* Top Search & Filter Bar (Image 1) */}
+      <div className="absolute top-4 left-4 z-[400] flex items-center gap-2 pointer-events-auto sm:left-6">
+        <div className="flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/90 px-3 py-2 shadow-2xl backdrop-blur-md">
+          <Filter className="h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search volcano or FL..."
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+            className="w-40 sm:w-60 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none"
+          />
+          <span className="rounded-full bg-red-600/20 px-2 py-0.5 text-[10px] font-bold text-red-400 border border-red-500/30 whitespace-nowrap">
+            {filteredAdvisories.length} Volcanoes Active
           </span>
-          <div className="space-y-1.5 text-xs text-slate-700">
-            <div className="flex items-center gap-2">
-              <span className="h-3.5 w-3.5 rounded-sm bg-red-500/55 border border-red-500" />
-              <span className="font-medium">Observed</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3.5 w-3.5 rounded-sm bg-red-500/40 border border-red-500/70" />
-              <span className="font-medium">Forecast +6h</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3.5 w-3.5 rounded-sm bg-red-500/28 border border-red-500/50" />
-              <span className="font-medium">Forecast +12h</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3.5 w-3.5 rounded-sm bg-red-500/18 border border-red-500/30" />
-              <span className="font-medium">Forecast +18h</span>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Bottom Sheet Drawer matching Image 2 */}
-      <div className="absolute bottom-0 left-0 right-0 z-[450] pointer-events-auto flex flex-col items-center">
-        <div
-          className={`w-full max-w-2xl rounded-t-3xl bg-white/98 shadow-2xl border-t border-slate-200/90 backdrop-blur-md transition-all duration-300 ${
-            isSheetExpanded ? 'max-h-72 sm:max-h-80' : 'max-h-16'
+      {/* Top Right Controls (Fullscreen, Geolocation, Refresh) */}
+      <div className="absolute top-4 right-4 z-[400] flex items-center gap-2 pointer-events-auto sm:right-6">
+        <button
+          onClick={handleToggleFullscreen}
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-950/90 text-slate-300 shadow-xl backdrop-blur-md hover:bg-slate-900 hover:text-white transition"
+          title="Toggle Fullscreen"
+          aria-label="Toggle Fullscreen"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
+
+        <button
+          onClick={handleLocateUser}
+          disabled={isLocating}
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-950/90 text-blue-400 shadow-xl backdrop-blur-md hover:bg-slate-900 transition"
+          title="Locate my position (GPS)"
+          aria-label="Locate me"
+        >
+          <Crosshair className={`h-4 w-4 ${isLocating ? 'animate-pulse text-blue-300' : ''}`} />
+        </button>
+
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            disabled={isLoading}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-950/90 text-slate-300 shadow-xl backdrop-blur-md hover:bg-slate-900 hover:text-white transition disabled:opacity-50"
+            title="Refresh Darwin VAAC advisories"
+            aria-label="Refresh data"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin text-red-500' : ''}`} />
+          </button>
+        )}
+      </div>
+
+      {/* Layer Filter Pill Legend (Image 1) */}
+      <div className="absolute top-16 left-4 z-[400] flex flex-wrap gap-1.5 pointer-events-auto sm:left-6">
+        <button
+          onClick={() => setActiveLayers((p) => ({ ...p, observed: !p.observed }))}
+          className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition border shadow-lg backdrop-blur-md ${
+            activeLayers.observed
+              ? 'bg-red-500/20 text-red-300 border-red-500/40'
+              : 'bg-slate-900/80 text-slate-500 border-slate-800'
           }`}
         >
-          {/* Drag Handle & Toggle */}
-          <button
-            onClick={() => setIsSheetExpanded(!isSheetExpanded)}
-            className="w-full flex flex-col items-center pt-2.5 pb-1 focus:outline-none"
-            aria-label="Toggle active advisories list"
-          >
-            <div className="h-1 w-10 rounded-full bg-slate-300" />
-          </button>
+          <span className="h-2 w-2 rounded-full bg-red-500" />
+          <span>Observed</span>
+        </button>
 
-          {/* Header Row */}
-          <div className="px-5 pb-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-black text-slate-900">
-                  Active Advisories: {advisories.length}
+        <button
+          onClick={() => setActiveLayers((p) => ({ ...p, forecast6h: !p.forecast6h }))}
+          className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition border shadow-lg backdrop-blur-md ${
+            activeLayers.forecast6h
+              ? 'bg-orange-500/20 text-orange-300 border-orange-500/40'
+              : 'bg-slate-900/80 text-slate-500 border-slate-800'
+          }`}
+        >
+          <span className="h-2 w-2 rounded-full bg-orange-500" />
+          <span>+6h</span>
+        </button>
+
+        <button
+          onClick={() => setActiveLayers((p) => ({ ...p, forecast12h: !p.forecast12h }))}
+          className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition border shadow-lg backdrop-blur-md ${
+            activeLayers.forecast12h
+              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+              : 'bg-slate-900/80 text-slate-500 border-slate-800'
+          }`}
+        >
+          <span className="h-2 w-2 rounded-full bg-amber-500" />
+          <span>+12h</span>
+        </button>
+
+        <button
+          onClick={() => setActiveLayers((p) => ({ ...p, forecast18h: !p.forecast18h }))}
+          className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition border shadow-lg backdrop-blur-md ${
+            activeLayers.forecast18h
+              ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40'
+              : 'bg-slate-900/80 text-slate-500 border-slate-800'
+          }`}
+        >
+          <span className="h-2 w-2 rounded-full bg-yellow-500" />
+          <span>+18h</span>
+        </button>
+      </div>
+
+      {/* Volcano Quick Selector Rail (Bottom Left - Image 1) */}
+      <div className="absolute bottom-6 left-4 z-[400] max-w-sm hidden sm:block pointer-events-auto">
+        <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto pr-1">
+          {filteredAdvisories.map((adv) => {
+            const color = getVolcanoColor(adv.volcanoName);
+            const isSelected = selectedAdvisory?.id === adv.id;
+
+            return (
+              <button
+                key={adv.id}
+                onClick={() => {
+                  setSelectedAdvisory(adv);
+                  if (adv.position && mapInstanceRef.current) {
+                    mapInstanceRef.current.flyTo(
+                      [adv.position.latitude, adv.position.longitude],
+                      6.5,
+                      { duration: 1.2 }
+                    );
+                  }
+                }}
+                className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition border backdrop-blur-md shadow-lg ${
+                  isSelected
+                    ? 'bg-slate-900 border-red-500/80 ring-1 ring-red-500/50'
+                    : 'bg-slate-950/85 border-slate-800/90 hover:bg-slate-900/90'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full shadow-sm"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="text-xs font-bold text-white">{adv.volcanoName}</span>
+                </div>
+                <span className="text-[10px] font-semibold text-slate-400 bg-slate-800/60 px-1.5 py-0.5 rounded">
+                  {adv.primaryFlightLevel}
                 </span>
-              </div>
-              <span className="font-mono text-xs text-slate-400">
-                {advisories[0] ? formatUtcDateTime(advisories[0].dtg).split(' ')[1] : '00:00'} UTC
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-400 mt-0.5">
-              Source: Bureau of Meteorology — Darwin VAAC
-            </p>
-          </div>
-
-          <div className="h-px w-full bg-slate-100" />
-
-          {/* Volcano List Tiles matching VolcanoListTile.dart */}
-          {isSheetExpanded && (
-            <div className="max-h-52 sm:max-h-60 overflow-y-auto px-4 py-2 divide-y divide-slate-100">
-              {advisories.map((adv) => {
-                const color = getVolcanoColor(adv.volcanoName);
-
-                return (
-                  <button
-                    key={adv.id}
-                    onClick={() => {
-                      setSelectedAdvisory(adv);
-                      if (adv.position && mapInstanceRef.current) {
-                        mapInstanceRef.current.flyTo(
-                          [adv.position.latitude, adv.position.longitude],
-                          7.5,
-                          { duration: 1 }
-                        );
-                      }
-                    }}
-                    className="w-full flex items-center justify-between py-3 px-2 text-left hover:bg-slate-50 rounded-xl transition"
-                    style={{ borderLeft: `3.5px solid ${color}` }}
-                  >
-                    <div className="flex items-center gap-3 pl-2">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full shadow-sm shrink-0"
-                        style={{ backgroundColor: color }}
-                      />
-                      <div>
-                        <span className="text-sm font-bold text-slate-900 block">
-                          {adv.volcanoName}
-                        </span>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span
-                            className="rounded px-1.5 py-0.5 font-mono text-[10px] font-bold"
-                            style={{
-                              backgroundColor: `${color}15`,
-                              color: color,
-                            }}
-                          >
-                            {adv.primaryFlightLevel}
-                          </span>
-                          <span className="text-[11px] text-slate-500">
-                            {adv.noVaExpected
-                              ? 'No VA Expected'
-                              : adv.vaNotIdentifiable
-                              ? 'VA Not Identifiable'
-                              : adv.polygons.length > 0
-                              ? adv.polygons.map((p) => p.type === 'observed' ? 'Observed' : p.type === 'forecast6h' ? '+6h' : p.type === 'forecast12h' ? '+12h' : '+18h').join(' · ')
-                              : 'No polygons'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <ChevronRight className="h-4 w-4 text-slate-400" />
-                  </button>
-                );
-              })}
-            </div>
-          )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Advisory Detail Modal (when clicked) */}
+      {/* Advisory Detail Drawer (Bottom Right - Image 1) */}
       {selectedAdvisory && (
-        <div className="fixed inset-0 z-[500] flex items-end sm:items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl border border-slate-200 animate-in slide-in-from-bottom-6">
-            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <span
-                  className="h-4 w-4 rounded-full shrink-0 shadow"
-                  style={{ backgroundColor: getVolcanoColor(selectedAdvisory.volcanoName) }}
-                />
-                <div>
-                  <h3 className="text-xl font-black text-slate-900">
-                    {selectedAdvisory.volcanoName}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Advisory #{selectedAdvisory.advisoryNumber} · {selectedAdvisory.area}
-                  </p>
-                </div>
+        <div className="absolute bottom-4 left-4 right-4 z-[450] sm:left-auto sm:right-6 sm:bottom-6 sm:w-96 rounded-2xl border border-slate-800 bg-slate-950/95 p-5 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-5 pointer-events-auto">
+          <div className="flex items-start justify-between border-b border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2.5">
+              <span
+                className="h-3 w-3 rounded-full"
+                style={{ backgroundColor: getVolcanoColor(selectedAdvisory.volcanoName) }}
+              />
+              <div>
+                <h3 className="text-base font-black text-white">{selectedAdvisory.volcanoName}</h3>
+                <p className="text-[11px] text-slate-400">
+                  Advisory #{selectedAdvisory.advisoryNumber} · {selectedAdvisory.area}
+                </p>
               </div>
-              <button
-                onClick={() => setSelectedAdvisory(null)}
-                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
+            </div>
+            <button
+              onClick={() => setSelectedAdvisory(null)}
+              className="rounded-lg p-1 text-slate-400 hover:bg-slate-900 hover:text-white transition"
+              aria-label="Close detail card"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-3 space-y-2 text-xs">
+            <div className="flex justify-between py-1 border-b border-slate-900">
+              <span className="text-slate-400">Issued DTG:</span>
+              <span className="font-semibold text-slate-200">
+                {formatWibDateTime(selectedAdvisory.dtg)}
+              </span>
             </div>
 
-            <div className="mt-4 space-y-2.5 text-xs">
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-500">Flight Level (Altitude):</span>
-                <span className="font-bold text-red-600 text-sm">
-                  {selectedAdvisory.primaryFlightLevel}
-                </span>
-              </div>
-
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-500">Movement Vector:</span>
-                <span className="font-bold text-amber-600 text-sm">
-                  {selectedAdvisory.primaryMovement}
-                </span>
-              </div>
-
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-500">Issued Timestamp (WIB):</span>
-                <span className="font-semibold text-slate-800">
-                  {formatWibDateTime(selectedAdvisory.dtg)}
-                </span>
-              </div>
-
-              {selectedAdvisory.sourceElevation && (
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500">Summit Elevation:</span>
-                  <span className="font-semibold text-slate-800">
-                    {selectedAdvisory.sourceElevation}
-                  </span>
-                </div>
-              )}
-
-              {selectedAdvisory.eruptionDetails && (
-                <div className="pt-2">
-                  <span className="text-slate-500 block mb-1 font-semibold">
-                    Eruption Details:
-                  </span>
-                  <p className="bg-slate-50 rounded-xl p-3 font-mono text-[11px] text-slate-800 border border-slate-200/80 leading-relaxed">
-                    {selectedAdvisory.eruptionDetails}
-                  </p>
-                </div>
-              )}
+            <div className="flex justify-between py-1 border-b border-slate-900">
+              <span className="text-slate-400">Flight Level (Alt):</span>
+              <span className="font-bold text-red-400">
+                {selectedAdvisory.primaryFlightLevel}
+              </span>
             </div>
 
-            <div className="mt-6 flex items-center justify-between pt-2">
-              <a
-                href={`/volcanoes/${selectedAdvisory.volcanoSlug}`}
-                className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1"
-              >
-                <span>Volcano Profile</span>
-                <ChevronRight className="h-3.5 w-3.5" />
-              </a>
-
-              <a
-                href={`/advisories/${selectedAdvisory.id}`}
-                className="flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-red-600/30 hover:bg-red-500 transition"
-              >
-                <span>Full Bulletin</span>
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+            <div className="flex justify-between py-1 border-b border-slate-900">
+              <span className="text-slate-400">Movement Vector:</span>
+              <span className="font-semibold text-amber-300">
+                {selectedAdvisory.primaryMovement}
+              </span>
             </div>
+
+            {selectedAdvisory.sourceElevation && (
+              <div className="flex justify-between py-1 border-b border-slate-900">
+                <span className="text-slate-400">Summit Elevation:</span>
+                <span className="text-slate-200">{selectedAdvisory.sourceElevation}</span>
+              </div>
+            )}
+
+            {selectedAdvisory.eruptionDetails && (
+              <div className="py-1">
+                <span className="text-slate-400 block mb-0.5">Eruption Details:</span>
+                <p className="text-slate-200 bg-slate-900/80 rounded-lg p-2 font-mono text-[11px] leading-relaxed">
+                  {selectedAdvisory.eruptionDetails}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-2 pt-2">
+            <a
+              href={`/volcanoes/${selectedAdvisory.volcanoSlug}`}
+              className="flex items-center gap-1 text-[11px] font-semibold text-red-400 hover:text-red-300 transition"
+            >
+              <span>Volcano Profile</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </a>
+
+            <a
+              href={`/advisories/${selectedAdvisory.id}`}
+              className="flex items-center gap-1 rounded-lg bg-red-600/20 px-2.5 py-1 text-[11px] font-semibold text-red-400 border border-red-500/30 hover:bg-red-600/30 transition"
+            >
+              <span>Full Bulletin</span>
+              <ExternalLink className="h-3 w-3" />
+            </a>
           </div>
         </div>
       )}

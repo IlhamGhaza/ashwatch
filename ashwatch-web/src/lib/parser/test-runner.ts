@@ -68,5 +68,13 @@ assert(multiResult.length === 5, `Expected 5 advisories, got ${multiResult.lengt
 const deduplicated = vaaParser.deduplicateByVolcano(multiResult);
 assert(deduplicated.length === 5, `Expected 5 unique volcanoes, got ${deduplicated.length}`);
 
+const krakatau = multiResult.find((a) => a.volcanoName === 'KRAKATAU');
+assert(krakatau !== undefined, 'Krakatau should be found in multiResult');
+console.log('Krakatau polygons count:', krakatau!.polygons.length);
+krakatau!.polygons.forEach((p) => {
+  console.log(`  - [${p.type}] FL: ${p.baseFlightLevel}/${p.topFlightLevel}, Mov: ${p.movementDirection} ${p.movementSpeed || ''}, Coords: ${p.coordinates.length}`);
+});
+assert(krakatau!.polygons.length >= 2, 'Krakatau should have multiple polygons');
+
 console.log('✓ Multiple advisories test passed!');
 console.log('🎉 ALL VAA PARSER TESTS PASSED SUCCESSFULLY!');
