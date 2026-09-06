@@ -4,60 +4,90 @@ import { Breadcrumbs } from '@/components/breadcrumbs';
 import { JsonLd, getFaqJsonLd } from '@/components/json-ld';
 import { HelpCircle } from 'lucide-react';
 
+import { SITE_CONFIG, SITE_URL } from '@/config/site';
+
 export const metadata: Metadata = {
-  title: 'Frequently Asked Questions (FAQ) — Volcanic Ash & Darwin VAAC',
+  title: 'Volcanic Ash Map FAQ | AshWatch',
   description:
-    'Comprehensive answers to questions about volcanic ash hazards, Darwin VAAC advisories, flight levels, and AshWatch mapping.',
+    'Learn how to read the AshWatch volcanic ash map, understand observed and forecast ash areas, and check whether your location is affected.',
   alternates: {
-    canonical: '/faq',
+    canonical: `${SITE_URL}/faq`,
+  },
+  openGraph: {
+    title: 'Volcanic Ash Map FAQ | AshWatch',
+    description:
+      'Learn how to read the AshWatch volcanic ash map, understand observed and forecast ash areas, and check whether your location is affected.',
+    url: `${SITE_URL}/faq`,
+    siteName: 'AshWatch',
+    type: 'website',
+    images: [
+      {
+        url: `${SITE_URL}/opengraph-image`,
+        width: 1200,
+        height: 630,
+        alt: 'Volcanic Ash Map FAQ — AshWatch',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Volcanic Ash Map FAQ | AshWatch',
+    description:
+      'Learn how to read the AshWatch volcanic ash map, understand observed and forecast ash areas, and check whether your location is affected.',
+    images: [`${SITE_URL}/opengraph-image`],
   },
 };
 
 const FAQ_LIST = [
   {
-    question: 'What is volcanic ash?',
+    question: 'What does the orange area mean?',
     answer:
-      'Volcanic ash consists of tiny jagged particles of pulverized rock, minerals, and volcanic glass expelled into the atmosphere during explosive volcanic eruptions. Ash is abrasive, dense, electrically conductive, and does not dissolve in water.',
+      'The orange translucent polygons show the forecast dispersion path of volcanic ash at future intervals (+6h, +12h, and +18h). Neutral gray-white areas represent currently observed ash.',
   },
   {
-    question: 'What is a volcanic ash advisory (VAA)?',
+    question: 'How do I know if my location is affected?',
     answer:
-      'A Volcanic Ash Advisory (VAA) is an internationally standardized aeronautical meteorological bulletin issued by a Volcanic Ash Advisory Centre (VAAC). It describes current observed ash clouds and provides +6, +12, and +18-hour dispersion forecasts with coordinates, altitudes, and movement vectors.',
+      'Click "Check My Area" in the navigation bar or on the map, use the GPS button, or search for your city. AshWatch automatically checks if your location falls inside any active or forecast ash polygons.',
   },
   {
-    question: 'What is Darwin VAAC?',
+    question: 'What is observed ash?',
     answer:
-      'The Darwin Volcanic Ash Advisory Centre is one of nine worldwide regional centers designated by ICAO. Operated by the Australian Bureau of Meteorology in Darwin, it is responsible for monitoring volcanic ash across Australia, Papua New Guinea, and the Indonesian archipelago.',
+      'Observed ash is the active volcanic ash cloud currently detected by satellites and meteorological observatories at the time the bulletin was issued.',
   },
   {
-    question: 'How does AshWatch display volcanic ash?',
+    question: 'What does +6h / +12h / +18h mean?',
     answer:
-      'AshWatch parses the raw coordinate sequences (DDMM/DDDMM) and flight level parameters from Darwin VAAC bulletins and translates them into responsive, multi-altitude colored polygons on an interactive OpenStreetMap.',
+      'These represent future forecast timeframes. Atmospheric models estimate where the ash cloud will drift in 6, 12, and 18 hours based on regional wind patterns.',
   },
   {
-    question: 'Does AshWatch provide official aviation safety information?',
+    question: 'Why can ash move away from the volcano?',
     answer:
-      'No. AshWatch is an independent open-source visualization project. It does not provide certified operational flight clearances or official safety determinations. Pilots, airlines, and aviation personnel must refer to official NOTAMs, ASHTAMs, and AirNav Indonesia bulletins.',
+      'High-altitude winds (often between 10,000 and 50,000 feet) blow volcanic ash plumes across hundreds of kilometers, often in directions different from wind on the ground.',
   },
   {
-    question: 'Which volcanoes are shown on AshWatch?',
+    question: 'Is AshWatch an official warning system?',
     answer:
-      'AshWatch displays all Indonesian volcanoes that have active or recent volcanic ash advisories recorded by Darwin VAAC, including Krakatau, Semeru, Lewotolok, Ibu, Dukono, Marapi, and Merapi.',
+      'No. AshWatch is an independent public visualization platform. It does not provide official civil defense warnings, flight clearances, or emergency evacuation orders.',
   },
   {
     question: 'How often is the data updated?',
     answer:
-      'AshWatch synchronizes with the Darwin VAAC bulletin feed every 10 minutes. The interactive map includes an on-demand refresh trigger for real-time validation.',
+      'AshWatch synchronizes with the Darwin VAAC bulletin feed every 3 to 10 minutes. You can also press the refresh button on the map to check for new data immediately.',
   },
   {
-    question: 'What does "Flight Level" (e.g. FL060, FL500) mean?',
+    question: 'Where does AshWatch get its volcanic ash data?',
     answer:
-      'A Flight Level (FL) represents altitude above standard sea level in hundreds of feet. For instance, FL060 equals 6,000 feet, while FL500 represents 50,000 feet—stratospheric heights reached by violent explosive eruptions.',
+      'AshWatch ingests official Volcanic Ash Advisories (VAA) from the Darwin Volcanic Ash Advisory Centre (operated by the Australian Bureau of Meteorology under ICAO mandate for Indonesia). Contextual volcano monitoring references PVMBG (MAGMA Indonesia), with meteorological and satellite surveillance aligned with BMKG.',
   },
   {
-    question: 'Why do ash polygons have different opacities on the map?',
+    question: 'What is the role of Darwin VAAC, BMKG, and PVMBG?',
     answer:
-      'AshWatch applies decreasing opacity to convey forecast uncertainty over time: Observed/Estimated ash clouds have the highest opacity (55%), followed by +6h (40%), +12h (28%), and +18h (18%).',
+      'PVMBG monitors seismic and physical volcanic activity directly on Indonesian terrain. BMKG monitors national weather, tracks Himawari-9 satellite ash imagery, and issues domestic aviation SIGMETs. Darwin VAAC is the international ICAO-designated center responsible for modeling atmospheric ash dispersion and cloud boundary forecasts across Indonesian airspace.',
+  },
+  {
+    question: 'Can I use this to decide whether it is safe to travel?',
+    answer:
+      'AshWatch is designed for situational awareness only. For official travel advisories, flight status, and safety decisions, always consult your airline, airport authorities, or official civil protection agencies.',
   },
 ];
 
@@ -68,30 +98,29 @@ export default function FaqPage() {
     <>
       <JsonLd data={faqSchema} />
 
-      <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <Breadcrumbs items={[{ name: 'FAQ', url: '/faq' }]} />
 
-        <div className="max-w-3xl">
-          <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-5xl">
-            Frequently Asked Questions
+        <div className="max-w-2xl mb-8">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
+            Volcanic Ash Map FAQ
           </h1>
-          <p className="mt-4 text-base text-slate-300 leading-relaxed">
-            Detailed insights into volcanic ash science, aviation safety protocols, Darwin VAAC
-            operations, and AshWatch engineering.
+          <p className="mt-3 text-sm text-[#8B95A7]">
+            Answers to common questions on how to read the volcanic ash map, forecast zones, and check your area.
           </p>
         </div>
 
-        <div className="mt-10 space-y-6">
+        <div className="space-y-4">
           {FAQ_LIST.map((item, idx) => (
             <article
               key={idx}
-              className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 transition hover:border-slate-700"
+              className="surface-card rounded-2xl p-5 border border-white/10 transition hover:border-white/20"
             >
-              <h2 className="text-lg font-bold text-white flex items-start gap-3">
-                <HelpCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+              <h2 className="text-sm sm:text-base font-bold text-white flex items-start gap-2.5">
+                <HelpCircle className="h-4 w-4 text-[#FF6B1A] shrink-0 mt-0.5" />
                 <span>{item.question}</span>
               </h2>
-              <p className="mt-3 text-sm leading-relaxed text-slate-300 pl-8">
+              <p className="mt-2 text-xs sm:text-sm text-[#8B95A7] pl-6 leading-relaxed">
                 {item.answer}
               </p>
             </article>

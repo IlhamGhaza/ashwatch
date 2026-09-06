@@ -3,22 +3,22 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getDarwinAdvisories } from '@/lib/advisories';
-import { getVolcanoColor } from '@/lib/palette';
-import { formatWibDateTime, formatUtcDateTime } from '@/lib/parser/date-utils';
+import { formatWibDateTime } from '@/lib/parser/date-utils';
+import { formatAltitudeCompact, formatMovementHuman, formatFlightLevelHuman } from '@/lib/aviation-format';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import {
   Flame,
   Clock,
-  Plane,
   Wind,
   Map,
-  Compass,
-  FileText,
   Layers,
-  ArrowRight,
+  FileText,
   ExternalLink,
+  ChevronRight,
+  Database,
+  ShieldCheck,
 } from 'lucide-react';
-import { SITE_CONFIG, SITE_URL } from '@/config/site';
+import { SITE_URL } from '@/config/site';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -33,19 +33,33 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: 'Advisory Not Found' };
   }
 
-  const title = `VAA ${advisory.volcanoName} #${advisory.advisoryNumber} — Darwin VAAC`;
-  const description = `Volcanic Ash Advisory #${advisory.advisoryNumber} for ${advisory.volcanoName}, Indonesia: Flight Level ${advisory.primaryFlightLevel}, movement ${advisory.primaryMovement}.`;
+  const title = `${advisory.volcanoName} Advisory #${advisory.advisoryNumber}`;
+  const description = `Volcanic Ash Advisory #${advisory.advisoryNumber} for ${advisory.volcanoName}, Indonesia. Altitude: ${advisory.primaryFlightLevel}, movement: ${advisory.primaryMovement}.`;
 
   return {
     title,
     description,
     alternates: {
-      canonical: `/advisories/${id}`,
+      canonical: `${SITE_URL}/advisories/${id}`,
     },
     openGraph: {
       title: `${title} | AshWatch`,
       description,
       url: `${SITE_URL}/advisories/${id}`,
+      images: [
+        {
+          url: `${SITE_URL}/opengraph-image`,
+          width: 1200,
+          height: 630,
+          alt: `${title} — AshWatch`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${title} | AshWatch`,
+      description,
+      images: [`${SITE_URL}/opengraph-image`],
     },
   };
 }
@@ -59,155 +73,144 @@ export default async function AdvisoryDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const color = getVolcanoColor(advisory.volcanoName);
-
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       <Breadcrumbs
         items={[
-          { name: 'Advisories', url: '/advisories' },
+          { name: 'Recent Advisories', url: '/advisories' },
           { name: `${advisory.volcanoName} #${advisory.advisoryNumber}`, url: `/advisories/${advisory.id}` },
         ]}
       />
 
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-8 shadow-2xl">
-        <div
-          className="absolute top-0 left-0 right-0 h-1.5"
-          style={{ backgroundColor: color }}
-        />
-
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      {/* Advisory Structure directly matching tugas.md */}
+      <div className="surface-card rounded-3xl border border-white/10 p-6 sm:p-8 shadow-2xl space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 border-b border-white/10 pb-6">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-              <span className="rounded bg-red-500/20 px-2 py-0.5 text-red-400 border border-red-500/30">
-                ICAO VAA Bulletin
-              </span>
-              <span>{advisory.area} · VAAC DARWIN</span>
-            </div>
-            <h1 className="mt-2 text-3xl font-black text-white sm:text-5xl">
+            <span className="text-xs text-[#8B95A7] uppercase tracking-wider block mb-1">
+              Volcano
+            </span>
+            <h1 className="text-3xl sm:text-5xl font-black text-white">
               {advisory.volcanoName}
             </h1>
-            <p className="mt-2 text-sm text-slate-300">
-              Advisory Nr: <strong className="text-white">{advisory.advisoryNumber}</strong> ·
-              DTG: <strong className="text-white">{advisory.dtgRaw}</strong>
+            <p className="text-xs text-[#8B95A7] mt-1">
+              Advisory #{advisory.advisoryNumber} · {advisory.area}
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:items-end gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FF6B1A]/20 px-3 py-1 text-xs font-bold text-[#FF8A3D] border border-[#FF6B1A]/30">
+              <Flame className="h-3.5 w-3.5" />
+              <span>ASH DETECTED</span>
+            </span>
+
             <Link
-              href="/map"
-              className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-red-600/25 hover:bg-red-500 transition"
+              href={`/map?lat=${advisory.position?.latitude || -6}&lng=${advisory.position?.longitude || 106}&label=${encodeURIComponent(
+                advisory.volcanoName
+              )}`}
+              className="flex items-center gap-1.5 text-xs font-bold text-[#FF6B1A] hover:text-[#FF8A3D] transition mt-2"
             >
-              <Map className="h-4 w-4" />
-              <span>View On Live Map</span>
+              <Map className="h-3.5 w-3.5" />
+              <span>View On Interactive Map</span>
             </Link>
           </div>
         </div>
-      </div>
 
-      {/* Metrics Row */}
-      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
-          <span className="text-xs text-slate-400 block mb-1">Flight Level Altitude</span>
-          <span className="text-xl font-black text-red-400">{advisory.primaryFlightLevel}</span>
+        {/* Current Ash Area & Movement */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="rounded-2xl bg-[#0B0F17]/80 p-5 border border-white/5">
+            <span className="text-xs text-[#8B95A7] block mb-1">Current ash area</span>
+            <span className="text-lg font-bold text-white block">
+              {formatAltitudeCompact(advisory.primaryFlightLevel)}
+            </span>
+            <span className="text-xs text-[#8B95A7] mt-1 block">
+              {formatFlightLevelHuman(advisory.primaryFlightLevel)}
+            </span>
+          </div>
+
+          <div className="rounded-2xl bg-[#0B0F17]/80 p-5 border border-white/5">
+            <span className="text-xs text-[#8B95A7] block mb-1">Movement</span>
+            <span className="text-lg font-bold text-amber-300 block">
+              {advisory.primaryMovement}
+            </span>
+            <span className="text-xs text-[#8B95A7] mt-1 block">
+              {formatMovementHuman(advisory.primaryMovement)}
+            </span>
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
-          <span className="text-xs text-slate-400 block mb-1">Movement Drift Vector</span>
-          <span className="text-xl font-black text-amber-300">{advisory.primaryMovement}</span>
-        </div>
-
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
-          <span className="text-xs text-slate-400 block mb-1">Date Time Group (WIB)</span>
-          <span className="text-sm font-bold text-slate-200">{formatWibDateTime(advisory.dtg)}</span>
-        </div>
-
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
-          <span className="text-xs text-slate-400 block mb-1">Next Scheduled Advisory</span>
-          <span className="text-sm font-bold text-slate-200">{advisory.nextAdvisory || 'As required'}</span>
-        </div>
-      </div>
-
-      {/* Polygon & Section Breakdown */}
-      <div className="mt-10 space-y-8">
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Layers className="h-5 w-5 text-red-400" />
-            <span>Parsed Polygon Segments ({advisory.polygons.length} Layers)</span>
+        {/* Observed & Forecast Layers Breakdown */}
+        <div>
+          <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <Layers className="h-4 w-4 text-[#FF6B1A]" />
+            <span>Observed & Forecast Horizons ({advisory.polygons.length} Layers)</span>
           </h2>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {advisory.polygons.map((poly, idx) => (
               <div
                 key={idx}
-                className="rounded-xl border border-slate-800/90 bg-slate-950/60 p-4"
+                className="rounded-xl border border-white/5 bg-[#0B0F17]/60 p-3.5 text-xs space-y-1"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded bg-slate-800 px-2 py-0.5 text-xs font-bold uppercase text-slate-300">
-                      Layer {idx + 1}: {poly.type}
-                    </span>
-                    <span className="text-xs text-red-400 font-bold">
-                      {poly.baseFlightLevel || 'SFC'} → {poly.topFlightLevel || '???'}
-                    </span>
-                  </div>
-                  {poly.movementDirection && (
-                    <span className="text-xs text-amber-300 font-semibold">
-                      Wind: {poly.movementDirection} {poly.movementSpeed || ''}
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-3">
-                  <span className="text-[11px] text-slate-400 block mb-1">
-                    Polygon Coordinates ({poly.coordinates.length} vertices):
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white uppercase">
+                    {poly.type === 'observed' ? 'Observed Cloud' : poly.type.replace('forecast', 'Forecast +')}
                   </span>
-                  {poly.coordinates.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5 font-mono text-[11px] text-slate-300">
-                      {poly.coordinates.map((c, ci) => (
-                        <span key={ci} className="rounded bg-slate-900 px-2 py-0.5 border border-slate-800">
-                          {c.latitude.toFixed(4)}°, {c.longitude.toFixed(4)}°
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-slate-500 italic">
-                      No coordinates (negative advisory or VA not identifiable)
-                    </span>
-                  )}
+                  <span className="text-[10px] text-[#FF8A3D] font-mono">
+                    {poly.coordinates.length} coords
+                  </span>
                 </div>
+                <div className="text-[#8B95A7]">
+                  Alt: <strong className="text-white">{poly.baseFlightLevel || 'SFC'} → {poly.topFlightLevel || '???'}</strong>
+                </div>
+                {poly.movementDirection && (
+                  <div className="text-amber-300 text-[11px]">
+                    {poly.movementDirection} {poly.movementSpeed || ''}
+                  </div>
+                )}
               </div>
             ))}
           </div>
-        </section>
+        </div>
 
-        {/* Eruption & Source Details */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Aviation Bulletin Attributes</h2>
-          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-xs">
-            <div className="rounded-xl bg-slate-950/60 p-3.5 border border-slate-800">
-              <dt className="text-slate-400 mb-1">Information Source:</dt>
-              <dd className="font-semibold text-white">{advisory.infoSource || 'HIMAWARI-9 / SATELLITE'}</dd>
-            </div>
-            <div className="rounded-xl bg-slate-950/60 p-3.5 border border-slate-800">
-              <dt className="text-slate-400 mb-1">Source Elevation:</dt>
-              <dd className="font-semibold text-white">{advisory.sourceElevation || 'N/A'}</dd>
-            </div>
+        {/* Source Attribution */}
+        <div className="rounded-2xl bg-[#0B0F17]/50 p-4 border border-white/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
+          <div>
+            <span className="text-[#8B95A7] block text-[10px] uppercase">Data Source:</span>
+            <span className="font-semibold text-white">Darwin VAAC · Bureau of Meteorology (Australia)</span>
+          </div>
+          <span className="text-[#8B95A7]">Issued: {formatWibDateTime(advisory.dtg)}</span>
+        </div>
+
+        {/* Raw Bulletin Expandable Section (per tugas.md) */}
+        <details className="group rounded-2xl border border-white/10 bg-[#0B0F17]/80 p-4 transition">
+          <summary className="flex cursor-pointer items-center justify-between text-xs font-bold text-[#8B95A7] group-open:text-white">
+            <span className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-[#FF6B1A]" />
+              <span>Raw Bulletin</span>
+            </span>
+            <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded group-open:hidden">
+              Click to Expand
+            </span>
+          </summary>
+          <div className="mt-4 pt-3 border-t border-white/10 font-mono text-[11px] text-slate-300 space-y-1 overflow-x-auto">
+            <p><span className="text-[#8B95A7]">DTG:</span> {advisory.dtgRaw}</p>
+            <p><span className="text-[#8B95A7]">VAAC:</span> DARWIN</p>
+            <p><span className="text-[#8B95A7]">VOLCANO:</span> {advisory.volcanoName} {advisory.volcanoCode ? `[${advisory.volcanoCode}]` : ''}</p>
+            <p><span className="text-[#8B95A7]">AREA:</span> {advisory.area}</p>
+            <p><span className="text-[#8B95A7]">INFO SOURCE:</span> {advisory.infoSource || 'HIMAWARI-9 / GROUND'}</p>
+            {advisory.sourceElevation && (
+              <p><span className="text-[#8B95A7]">SUMMIT ELEV:</span> {advisory.sourceElevation}</p>
+            )}
             {advisory.eruptionDetails && (
-              <div className="sm:col-span-2 rounded-xl bg-slate-950/60 p-3.5 border border-slate-800 font-mono">
-                <dt className="text-slate-400 mb-1">Eruption Details:</dt>
-                <dd className="text-slate-200">{advisory.eruptionDetails}</dd>
-              </div>
+              <p><span className="text-[#8B95A7]">ERUPTION DETAILS:</span> {advisory.eruptionDetails}</p>
             )}
             {advisory.remarks && (
-              <div className="sm:col-span-2 rounded-xl bg-slate-950/60 p-3.5 border border-slate-800 font-mono">
-                <dt className="text-slate-400 mb-1">Remarks (RMK):</dt>
-                <dd className="text-slate-200">{advisory.remarks}</dd>
-              </div>
+              <p><span className="text-[#8B95A7]">RMK:</span> {advisory.remarks}</p>
             )}
-          </dl>
-        </section>
+            <p><span className="text-[#8B95A7]">NEXT ADVISORY:</span> {advisory.nextAdvisory || 'AS REQUIRED'}</p>
+          </div>
+        </details>
       </div>
     </div>
   );

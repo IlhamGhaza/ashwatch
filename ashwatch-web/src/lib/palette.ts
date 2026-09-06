@@ -1,40 +1,63 @@
 import { PolygonType } from './types';
 
-export const VOLCANO_PALETTE: string[] = [
-  '#E53E3E', // red
-  '#DD6B20', // dark orange
-  '#D53F8C', // pink
-  '#C53030', // dark red
-  '#E25353', // coral red
-  '#B83280', // magenta
-  '#ED6436', // burnt orange
-  '#CB3A5F', // rose
-  '#D44A4A', // crimson
-  '#E2683C', // tangerine
-];
-
 /**
- * Deterministic color picker based on volcano name string hash,
- * preserving exact visual consistency with the Flutter application.
+ * Standard visual tokens for AshWatch map layers according to design specifications.
+ * Observed/Estimated ash clouds use a neutral gray-white translucent appearance.
+ * Forecast horizons (+6h, +12h, +18h) use progressively lighter translucent warm orange layers.
  */
-export function getVolcanoColor(volcanoName: string): string {
-  const upper = volcanoName.toUpperCase();
-  let hash = 0;
-  for (let i = 0; i < upper.length; i++) {
-    hash = (hash * 31 + upper.charCodeAt(i)) | 0;
-  }
-  const index = Math.abs(hash) % VOLCANO_PALETTE.length;
-  return VOLCANO_PALETTE[index];
-}
-
-export const POLYGON_OPACITIES: Record<PolygonType, number> = {
-  observed: 0.55,
-  estimated: 0.55,
-  forecast6h: 0.40,
-  forecast12h: 0.28,
-  forecast18h: 0.18,
+export const LAYER_COLORS: Record<PolygonType, { fill: string; stroke: string; opacity: number }> = {
+  observed: {
+    fill: '#E2E8F0', // Neutral gray-white
+    stroke: '#FFFFFF',
+    opacity: 0.45,
+  },
+  estimated: {
+    fill: '#E2E8F0',
+    stroke: '#FFFFFF',
+    opacity: 0.45,
+  },
+  forecast6h: {
+    fill: '#FF8A3D', // Warm orange
+    stroke: '#FFA25B',
+    opacity: 0.32,
+  },
+  forecast12h: {
+    fill: '#FF8A3D',
+    stroke: '#FFA25B',
+    opacity: 0.20,
+  },
+  forecast18h: {
+    fill: '#FF8A3D',
+    stroke: '#FFA25B',
+    opacity: 0.12,
+  },
 };
 
+/**
+ * Primary accent colors for AshWatch
+ */
+export const BRAND_COLORS = {
+  primaryAccent: '#FF6B1A',
+  secondaryAccent: '#FF8A3D',
+  background: '#0B0F17',
+  surfaceSecondary: '#111827',
+  surfaceElevated: '#151C28',
+  textPrimary: '#F5F7FA',
+  textSecondary: '#8B95A7',
+};
+
+/**
+ * Clean volcano marker accent color
+ */
+export function getVolcanoColor(_volcanoName?: string): string {
+  // Return primary warm accent instead of random rainbow colors
+  return BRAND_COLORS.primaryAccent;
+}
+
+export function getPolygonStyle(type: PolygonType) {
+  return LAYER_COLORS[type] || LAYER_COLORS.observed;
+}
+
 export function getPolygonOpacity(type: PolygonType): number {
-  return POLYGON_OPACITIES[type] ?? 0.35;
+  return LAYER_COLORS[type]?.opacity ?? 0.3;
 }

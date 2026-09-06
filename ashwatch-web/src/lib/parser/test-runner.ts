@@ -77,4 +77,44 @@ krakatau!.polygons.forEach((p) => {
 assert(krakatau!.polygons.length >= 2, 'Krakatau should have multiple polygons');
 
 console.log('✓ Multiple advisories test passed!');
-console.log('🎉 ALL VAA PARSER TESTS PASSED SUCCESSFULLY!');
+
+console.log('--- Testing Geo Checker (Point-in-Polygon & Distance) ---');
+import { isPointInPolygon, checkLocationAshStatus } from '../geo-checker';
+import { formatFlightLevelHuman, formatMovementHuman } from '../aviation-format';
+
+// Test simple square polygon around Krakatau coordinates
+const testPoly = [
+  { latitude: -6.0, longitude: 105.3 },
+  { latitude: -6.0, longitude: 105.6 },
+  { latitude: -6.2, longitude: 105.6 },
+  { latitude: -6.2, longitude: 105.3 },
+];
+
+assert(isPointInPolygon({ latitude: -6.1, longitude: 105.42 }, testPoly), 'Point should be inside polygon');
+assert(!isPointInPolygon({ latitude: -7.0, longitude: 107.0 }, testPoly), 'Point should be outside polygon');
+
+// Test checkLocationAshStatus with Krakatau advisory
+const insideResult = checkLocationAshStatus(
+  { latitude: -6.1, longitude: 105.42 },
+  multiResult,
+  'Krakatau Vicinity'
+);
+assert(insideResult.status === 'ASH_AREA' || insideResult.status === 'FORECAST_OVERLAP', 'Should detect ash area');
+console.log(`  - Location check inside plume: ${insideResult.statusLabel} (${insideResult.affectedVolcano})`);
+
+const outsideResult = checkLocationAshStatus(
+  { latitude: 3.59, longitude: 98.67 },
+  multiResult,
+  'Medan City'
+);
+assert(outsideResult.status === 'CLEAR', 'Medan should be CLEAR');
+assert(outsideResult.nearestAshDistanceKm > 0, 'Distance to nearest ash should be > 0 km');
+console.log(`  - Location check outside plume (Medan): ${outsideResult.statusLabel} (${outsideResult.nearestAshDistanceKm} km from nearest ash)`);
+
+// Test Aviation Format
+assert(formatFlightLevelHuman('FL150').includes('15,000 ft'), 'FL150 format failed');
+assert(formatMovementHuman('MOV NW 05KT').includes('Northwest'), 'Movement NW format failed');
+console.log('✓ Geo Checker and Aviation Format tests passed!');
+
+console.log('🎉 ALL TESTS PASSED SUCCESSFULLY!');
+

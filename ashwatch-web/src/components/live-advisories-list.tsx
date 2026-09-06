@@ -3,18 +3,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { VolcanoAdvisory } from '@/lib/types';
-import { getVolcanoColor } from '@/lib/palette';
-import { formatWibDateTime, formatUtcDateTime } from '@/lib/parser/date-utils';
+import { formatWibDateTime } from '@/lib/parser/date-utils';
+import { formatAltitudeCompact, formatMovementHuman } from '@/lib/aviation-format';
 import {
   Clock,
-  Plane,
-  Wind,
   ArrowRight,
-  Radio,
   RefreshCw,
   Search,
-  Layers,
-  MapPin,
+  ChevronDown,
+  ChevronUp,
+  FileText,
 } from 'lucide-react';
 
 interface LiveAdvisoriesListProps {
@@ -44,7 +42,7 @@ export function LiveAdvisoriesList({
   const [mounted, setMounted] = useState(false);
   const [relativeTime, setRelativeTime] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [hasNewData, setHasNewData] = useState(false);
+  const [expandedRawId, setExpandedRawId] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -67,12 +65,6 @@ export function LiveAdvisoriesList({
       if (res.ok) {
         const data = await res.json();
         if (data.advisories && data.advisories.length > 0) {
-          const newIds = data.advisories.map((a: VolcanoAdvisory) => a.id).join(',');
-          const oldIds = advisories.map((a) => a.id).join(',');
-          if (newIds !== oldIds) {
-            setHasNewData(true);
-            setTimeout(() => setHasNewData(false), 2000);
-          }
           setAdvisories(data.advisories);
         }
         setUpdatedAt(data.updatedAt || new Date().toISOString());
@@ -83,7 +75,7 @@ export function LiveAdvisoriesList({
     } finally {
       setIsRefreshing(false);
     }
-  }, [advisories]);
+  }, []);
 
   // Auto-poll every 3 minutes
   useEffect(() => {
@@ -105,29 +97,27 @@ export function LiveAdvisoriesList({
 
   return (
     <div className="space-y-6">
-      {/* Live Status & Filter Bar */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
-        {/* Search */}
+      {/* Live Status & Search Bar */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-white/10 bg-[#111827]/80 p-3.5 backdrop-blur-md">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8B95A7]" />
           <input
             type="text"
-            placeholder="Filter by volcano, flight level, area..."
+            placeholder="Search by volcano name or flight level..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-slate-800 bg-slate-950/80 py-2 pl-10 pr-4 text-xs text-white placeholder-slate-500 focus:border-red-500/50 focus:outline-none"
+            className="w-full rounded-xl border border-white/10 bg-[#0B0F17] py-2 pl-9 pr-4 text-xs text-white placeholder-[#8B95A7] focus:border-[#FF6B1A] focus:outline-none"
           />
         </div>
 
-        {/* Status Indicators & Refresh */}
         <div className="flex items-center justify-between sm:justify-end gap-3">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
-            <span className="text-xs font-bold text-emerald-400">LIVE</span>
-            <span className="text-xs text-slate-400" suppressHydrationWarning>
+            <span className="font-bold text-emerald-400">LIVE</span>
+            <span className="text-[#8B95A7]" suppressHydrationWarning>
               Synced {mounted ? relativeTime : 'just now'}
             </span>
           </div>
@@ -135,101 +125,115 @@ export function LiveAdvisoriesList({
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="flex h-8 items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950/80 px-3 text-xs font-semibold text-slate-300 transition hover:bg-slate-900 hover:text-white disabled:opacity-50"
+            className="flex h-8 items-center gap-1.5 rounded-xl border border-white/10 bg-[#151C28] px-3 text-xs font-semibold text-[#F5F7FA] hover:bg-white/10 transition disabled:opacity-50"
             title="Refresh Darwin VAAC telemetry"
-            aria-label="Refresh advisories list"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin text-red-500' : ''}`} />
-            <span className="hidden sm:inline">Refresh</span>
+            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin text-[#FF6B1A]' : ''}`} />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
       {/* Advisories Count */}
-      <div className="flex items-center justify-between text-xs text-slate-400">
+      <div className="flex items-center justify-between text-xs text-[#8B95A7]">
         <span>
           Showing <strong className="text-white">{filteredAdvisories.length}</strong> of{' '}
           <strong className="text-white">{advisories.length}</strong> bulletins
         </span>
-        <span suppressHydrationWarning>Last Source Sync: {formatWibDateTime(updatedAt)}</span>
+        <span suppressHydrationWarning>Feed Synced: {formatWibDateTime(updatedAt)}</span>
       </div>
 
-      {/* Advisories Grid / List */}
+      {/* Advisories Grid (Human-readable format per tugas.md) */}
       <div className="space-y-4">
         {filteredAdvisories.map((adv) => {
-          const color = getVolcanoColor(adv.volcanoName);
+          const isRawExpanded = expandedRawId === adv.id;
 
           return (
             <div
               key={adv.id}
-              className={`group relative overflow-hidden rounded-2xl border bg-slate-900/50 p-5 sm:p-6 backdrop-blur-sm transition-all duration-300 hover:bg-slate-900/80 ${
-                hasNewData
-                  ? 'border-emerald-500/50 advisory-card-glow'
-                  : 'border-slate-800 hover:border-red-500/40 hover:-translate-y-0.5'
-              }`}
+              className="surface-card rounded-2xl border border-white/10 p-5 sm:p-6 transition hover:border-white/20"
             >
-              <div
-                className="absolute top-0 bottom-0 left-0 w-1.5"
-                style={{ backgroundColor: color }}
-              />
-
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pl-2 sm:pl-3">
-                <div className="space-y-1.5">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                {/* Advisory Information Header */}
+                <div className="space-y-2 flex-1">
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                    <h2 className="text-xl font-black text-white group-hover:text-red-400 transition-colors">
-                      {adv.volcanoName}
-                    </h2>
-                    <span className="rounded-md bg-slate-800 px-2 py-0.5 font-mono text-xs font-semibold text-slate-300">
-                      Advisory #{adv.advisoryNumber}
+                    <h2 className="text-xl font-black text-white">{adv.volcanoName}</h2>
+                    <span className="text-xs text-[#8B95A7]">
+                      Ash advisory · {formatWibDateTime(adv.dtg)}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-xs text-slate-400">
-                      <MapPin className="h-3 w-3 text-slate-500" />
-                      {adv.area}
+                    <span className="rounded bg-white/5 px-2 py-0.5 font-mono text-[10px] text-[#8B95A7]">
+                      #{adv.advisoryNumber}
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5 text-slate-500" />
-                      <span>
-                        {formatWibDateTime(adv.dtg)} ({formatUtcDateTime(adv.dtg)})
-                      </span>
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Plane className="h-3.5 w-3.5 text-red-400" />
-                      <span className="font-bold text-red-400">{adv.primaryFlightLevel}</span>
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Wind className="h-3.5 w-3.5 text-amber-400" />
-                      <span className="font-semibold text-amber-300">{adv.primaryMovement}</span>
-                    </span>
-                    {adv.polygons && adv.polygons.length > 0 && (
-                      <>
-                        <span>•</span>
-                        <span className="flex items-center gap-1 text-slate-300">
-                          <Layers className="h-3.5 w-3.5 text-blue-400" />
-                          <span>{adv.polygons.length} layer{adv.polygons.length > 1 ? 's' : ''}</span>
-                        </span>
-                      </>
+                  {/* Human readable parameters */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1 max-w-xl">
+                    <div className="rounded-lg bg-[#0B0F17]/60 p-2.5 border border-white/5">
+                      <span className="text-[10px] text-[#8B95A7] block">Ash:</span>
+                      <strong className="text-white">
+                        {formatAltitudeCompact(adv.primaryFlightLevel)}
+                      </strong>
+                    </div>
+
+                    <div className="rounded-lg bg-[#0B0F17]/60 p-2.5 border border-white/5">
+                      <span className="text-[10px] text-[#8B95A7] block">Movement:</span>
+                      <strong className="text-amber-300">
+                        {formatMovementHuman(adv.primaryMovement)}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Expandable Technical Raw Bulletin (Hidden by default per tugas.md) */}
+                  <div className="pt-2">
+                    <button
+                      onClick={() => setExpandedRawId(isRawExpanded ? null : adv.id)}
+                      className="inline-flex items-center gap-1.5 text-xs text-[#8B95A7] hover:text-white transition"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      <span>{isRawExpanded ? 'Hide Raw Advisory' : 'View Raw Advisory'}</span>
+                      {isRawExpanded ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
+                    </button>
+
+                    {isRawExpanded && (
+                      <div className="mt-2 rounded-xl bg-[#0B0F17] p-3 border border-white/10 font-mono text-[11px] text-slate-300 space-y-1 animate-in fade-in">
+                        <p><span className="text-[#8B95A7]">DTG:</span> {adv.dtgRaw}</p>
+                        <p><span className="text-[#8B95A7]">VAAC:</span> DARWIN</p>
+                        <p><span className="text-[#8B95A7]">VOLCANO:</span> {adv.volcanoName}</p>
+                        <p><span className="text-[#8B95A7]">AREA:</span> {adv.area}</p>
+                        <p><span className="text-[#8B95A7]">INFO SOURCE:</span> {adv.infoSource || 'HIMAWARI-9'}</p>
+                        {adv.eruptionDetails && (
+                          <p><span className="text-[#8B95A7]">ERUPTION DETAILS:</span> {adv.eruptionDetails}</p>
+                        )}
+                        {adv.remarks && (
+                          <p><span className="text-[#8B95A7]">RMK:</span> {adv.remarks}</p>
+                        )}
+                        <p><span className="text-[#8B95A7]">NEXT ADVISORY:</span> {adv.nextAdvisory || 'AS REQUIRED'}</p>
+                      </div>
                     )}
                   </div>
-
-                  {adv.eruptionDetails && (
-                    <p className="mt-2 text-xs font-mono text-slate-300 bg-slate-950/60 border border-slate-800/60 rounded-lg p-2.5 max-w-3xl leading-relaxed">
-                      {adv.eruptionDetails}
-                    </p>
-                  )}
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                {/* CTA */}
+                <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 pt-2 sm:pt-0">
                   <Link
                     href={`/advisories/${adv.id}`}
-                    className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/90 px-4 py-2.5 text-xs font-bold text-white hover:bg-red-600 hover:border-red-600 transition shadow-lg group/btn"
+                    className="flex items-center gap-1.5 rounded-xl bg-[#FF6B1A] px-4 py-2 text-xs font-bold text-white hover:bg-[#FF8A3D] transition shadow-md"
                   >
-                    <span>Inspect Bulletin</span>
-                    <ArrowRight className="h-3.5 w-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
+                    <span>View Details</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+
+                  <Link
+                    href={`/map?lat=${adv.position?.latitude || -6}&lng=${adv.position?.longitude || 106}&label=${encodeURIComponent(
+                      adv.volcanoName
+                    )}`}
+                    className="text-xs text-[#8B95A7] hover:text-white transition"
+                  >
+                    View on Map
                   </Link>
                 </div>
               </div>
@@ -238,12 +242,12 @@ export function LiveAdvisoriesList({
         })}
 
         {filteredAdvisories.length === 0 && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center">
-            <p className="text-sm font-semibold text-slate-300">
+          <div className="rounded-2xl border border-white/10 bg-[#111827]/40 p-10 text-center">
+            <p className="text-xs font-semibold text-[#F5F7FA]">
               No advisories matched &ldquo;{searchQuery}&rdquo;
             </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Try searching with a volcano name or flight level code (e.g., FL100).
+            <p className="mt-1 text-[11px] text-[#8B95A7]">
+              Try searching with a volcano name (e.g., Semeru, Ibu, Krakatau).
             </p>
           </div>
         )}

@@ -2,43 +2,47 @@
 @import "leaflet/dist/leaflet.css";
 
 :root {
-  --background: #090d16;
-  --foreground: #f1f5f9;
-  --card: #111827;
-  --card-foreground: #f8fafc;
-  --border: #1e293b;
-  --primary: #ef4444;
-  --primary-hover: #dc2626;
-  --muted: #64748b;
-  --accent: #f97316;
+  --background: #0B0F17;
+  --foreground: #F5F7FA;
+  --surface-secondary: #111827;
+  --surface-elevated: #151C28;
+  --text-muted: #8B95A7;
+  --border: rgba(255, 255, 255, 0.08);
+  --accent-primary: #FF6B1A;
+  --accent-secondary: #FF8A3D;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: #0B0F17;
+  color: #F5F7FA;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow-x: hidden;
 }
 
-/* Custom Leaflet Map styling */
+/* Custom OpenStreetMap styling - Dark & Clean while keeping OSM as provider */
 .leaflet-container {
   width: 100%;
   height: 100%;
-  background-color: #0b0f19 !important;
+  background-color: #0B0F17 !important;
   font-family: inherit;
 }
 
+/* Elegant dark mode transformation for OSM tiles */
+.osm-dark-tiles .leaflet-tile {
+  filter: brightness(0.6) invert(1) contrast(2.4) hue-rotate(205deg) saturate(0.25) brightness(0.75);
+}
+
 .leaflet-popup-content-wrapper {
-  background: #111827 !important;
-  color: #f8fafc !important;
-  border-radius: 12px !important;
-  border: 1px solid #374151 !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+  background: #151C28 !important;
+  color: #F5F7FA !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.7) !important;
   padding: 4px !important;
 }
 
 .leaflet-popup-tip {
-  background: #111827 !important;
+  background: #151C28 !important;
 }
 
 .leaflet-popup-content {
@@ -47,21 +51,22 @@ body {
 }
 
 .leaflet-tooltip {
-  background: rgba(17, 24, 39, 0.92) !important;
-  color: #fff !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  border-radius: 6px !important;
+  background: rgba(21, 28, 40, 0.95) !important;
+  color: #F5F7FA !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
   font-size: 11px !important;
-  font-weight: 700 !important;
-  padding: 3px 8px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  font-weight: 600 !important;
+  padding: 4px 10px !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(8px);
 }
 
 .leaflet-tooltip-top:before {
-  border-top-color: rgba(17, 24, 39, 0.92) !important;
+  border-top-color: rgba(21, 28, 40, 0.95) !important;
 }
 
-/* Permanent center label inside ash polygons matching Flutter reference */
+/* Centered label inside ash polygons */
 .ash-polygon-center-label-wrapper {
   background: transparent !important;
   border: none !important;
@@ -70,18 +75,18 @@ body {
 }
 
 .ash-polygon-center-label {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  color: #ffffff !important;
-  font-size: 13px !important;
-  font-weight: 800 !important;
+  background: rgba(11, 15, 23, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
+  color: #F5F7FA !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
   text-align: center !important;
   line-height: 1.25 !important;
-  letter-spacing: 0.5px !important;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.85) !important;
+  letter-spacing: 0.3px !important;
   pointer-events: none !important;
-  padding: 0 !important;
+  padding: 2px 6px !important;
   transform: translate(-50%, -50%);
   white-space: nowrap;
 }
@@ -90,7 +95,7 @@ body {
   display: none !important;
 }
 
-/* Pulsing radar marker animation */
+/* Pulsing radar marker animation for active plumes & user location */
 @keyframes pulse-ring {
   0% {
     transform: scale(0.6);
@@ -110,59 +115,67 @@ body {
   animation: pulse-ring 2.2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
 }
 
-/* Custom scrollbar */
+/* User Location GPS Ping */
+@keyframes user-gps-ping {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.user-gps-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  animation: user-gps-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Custom sleek scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #0B0F17;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #1F2937;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #374151;
 }
 
-/* Advisory card update glow pulse */
-@keyframes card-glow-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5), inset 0 0 15px rgba(16, 185, 129, 0.1);
-  }
-  50% {
-    box-shadow: 0 0 25px 4px rgba(16, 185, 129, 0.35), inset 0 0 25px rgba(16, 185, 129, 0.2);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0), inset 0 0 0 transparent;
-  }
-}
-
-.advisory-card-glow {
-  animation: card-glow-pulse 1.8s ease-out;
-}
-
-/* Glassmorphism utility */
-.glass-panel {
-  background: rgba(15, 23, 42, 0.65);
+/* Subtle translucent surface utility (according to tugas.md) */
+.surface-card {
+  background: rgba(17, 24, 39, 0.75);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.glass-panel-interactive {
-  background: rgba(15, 23, 42, 0.6);
+.surface-elevated {
+  background: rgba(21, 28, 40, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.surface-interactive {
+  background: rgba(17, 24, 39, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
 }
 
-.glass-panel-interactive:hover {
-  background: rgba(15, 23, 42, 0.85);
-  border-color: rgba(239, 68, 68, 0.4);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6), 0 0 20px -5px rgba(239, 68, 68, 0.15);
+.surface-interactive:hover {
+  background: rgba(21, 28, 40, 0.9);
+  border-color: rgba(255, 107, 26, 0.35);
+  transform: translateY(-1px);
 }
-

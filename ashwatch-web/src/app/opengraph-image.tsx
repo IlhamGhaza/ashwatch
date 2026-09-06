@@ -13,7 +13,7 @@ export default async function Image() {
     (
       <div
         style={{
-          background: 'linear-gradient(135deg, #090d16 0%, #151b2b 60%, #2a1215 100%)',
+          background: 'radial-gradient(circle at top right, #1F293D 0%, #0B0F17 65%, #070A0F 100%)',
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -26,16 +26,16 @@ export default async function Image() {
           position: 'relative',
         }}
       >
-        {/* Decorative background glow */}
+        {/* Decorative warm orange volcanic glow */}
         <div
           style={{
             position: 'absolute',
-            top: '-100px',
-            right: '-100px',
-            width: '500px',
-            height: '500px',
+            top: '-120px',
+            right: '-120px',
+            width: '600px',
+            height: '600px',
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(239, 68, 68, 0.25) 0%, rgba(0, 0, 0, 0) 70%)',
+            background: 'radial-gradient(circle, rgba(255, 107, 26, 0.22) 0%, rgba(11, 15, 23, 0) 70%)',
           }}
         />
 
@@ -46,41 +46,56 @@ export default async function Image() {
               width: '64px',
               height: '64px',
               borderRadius: '16px',
-              background: 'linear-gradient(135deg, #ef4444, #f97316)',
+              background: 'linear-gradient(135deg, #FF6B1A, #FF8A3D)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '32px',
+              boxShadow: '0 8px 24px rgba(255, 107, 26, 0.35)',
             }}
           >
             🌋
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '40px', fontWeight: 900, letterSpacing: '-1px' }}>
-              Ash<span style={{ color: '#ef4444' }}>Watch</span>
+            <span style={{ fontSize: '42px', fontWeight: 900, letterSpacing: '-1px' }}>
+              ASH<span style={{ color: '#FF6B1A' }}>WATCH</span>
             </span>
-            <span style={{ fontSize: '18px', color: '#94a3b8', letterSpacing: '2px', textTransform: 'uppercase' }}>
-              Darwin VAAC Monitor
+            <span style={{ fontSize: '16px', color: '#8B95A7', letterSpacing: '2.5px', textTransform: 'uppercase', fontWeight: 600 }}>
+              Volcanic Ash Map • Indonesia
             </span>
           </div>
         </div>
 
         {/* Main Title & Subtitle */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '900px' }}>
-          <h1
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '960px' }}>
+          <div
             style={{
-              fontSize: '56px',
-              fontWeight: 800,
-              lineHeight: 1.15,
-              letterSpacing: '-1.5px',
-              margin: 0,
-              color: '#f8fafc',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: '#FF8A3D',
+              fontSize: '18px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
             }}
           >
-            Real-Time Volcanic Ash Map for Indonesia
+            ● Check Volcanic Ash Near You
+          </div>
+          <h1
+            style={{
+              fontSize: '60px',
+              fontWeight: 900,
+              lineHeight: 1.1,
+              letterSpacing: '-2px',
+              margin: 0,
+              color: '#F5F7FA',
+            }}
+          >
+            Volcanic Ash Map Indonesia
           </h1>
-          <p style={{ fontSize: '24px', color: '#cbd5e1', lineHeight: 1.4, margin: 0 }}>
-            Interactive aviation flight levels, ash cloud dispersion boundaries, and multi-volcano advisory tracking.
+          <p style={{ fontSize: '24px', color: '#8B95A7', lineHeight: 1.4, margin: 0 }}>
+            See where volcanic ash is spreading across Indonesia and check whether your location is inside an active or forecast ash zone.
           </p>
         </div>
 
@@ -88,42 +103,42 @@ export default async function Image() {
         <div style={{ display: 'flex', gap: '16px' }}>
           <div
             style={{
-              padding: '10px 20px',
+              padding: '12px 24px',
               borderRadius: '9999px',
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
-              color: '#fca5a5',
+              background: 'rgba(255, 107, 26, 0.15)',
+              border: '1px solid rgba(255, 107, 26, 0.4)',
+              color: '#FF8A3D',
               fontSize: '18px',
-              fontWeight: 600,
+              fontWeight: 700,
             }}
           >
-            ● Live Darwin VAAC Ingestion
+            Check My Area (GPS & Search)
           </div>
           <div
             style={{
-              padding: '10px 20px',
+              padding: '12px 24px',
               borderRadius: '9999px',
-              background: 'rgba(249, 115, 22, 0.15)',
-              border: '1px solid rgba(249, 115, 22, 0.4)',
-              color: '#fdba74',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              color: '#F5F7FA',
               fontSize: '18px',
               fontWeight: 600,
             }}
           >
-            Multi-Altitude Layers (FL)
+            OpenStreetMap Engine
           </div>
           <div
             style={{
-              padding: '10px 20px',
+              padding: '12px 24px',
               borderRadius: '9999px',
-              background: 'rgba(56, 189, 248, 0.15)',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
-              color: '#7dd3fc',
+              background: 'rgba(16, 185, 129, 0.15)',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              color: '#34D399',
               fontSize: '18px',
               fontWeight: 600,
             }}
           >
-            OpenStreetMap
+            Observed & Forecast (+6h/+12h/+18h)
           </div>
         </div>
       </div>

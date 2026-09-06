@@ -1,26 +1,22 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getDarwinAdvisories } from '@/lib/advisories';
-import { getVolcanoColor } from '@/lib/palette';
-import { formatWibDateTime, formatUtcDateTime } from '@/lib/parser/date-utils';
+import { formatWibDateTime } from '@/lib/parser/date-utils';
+import { formatAltitudeCompact, formatMovementHuman } from '@/lib/aviation-format';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import {
   Flame,
   MapPin,
-  Mountain,
-  Plane,
-  Wind,
   Map,
   ArrowRight,
   ExternalLink,
-  Layers,
   Clock,
-  Radio,
-  FileText,
+  Layers,
+  Mountain,
+  ChevronRight,
 } from 'lucide-react';
-import { SITE_CONFIG, SITE_URL } from '@/config/site';
+import { SITE_URL } from '@/config/site';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,22 +32,37 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   );
 
   const volcanoName = advisory ? advisory.volcanoName : slug.toUpperCase();
-
-  const title = `${volcanoName} Volcano Volcanic Ash & Airspace Monitoring`;
+  const title = `Mount ${volcanoName} Volcanic Ash Map | AshWatch`;
   const description = advisory
-    ? `Live Darwin VAAC Volcanic Ash Advisory #${advisory.advisoryNumber} for Mount ${advisory.volcanoName}. Primary flight level ${advisory.primaryFlightLevel}, movement ${advisory.primaryMovement}.`
-    : `Aviation monitoring for Mount ${volcanoName} in Indonesia.`;
+    ? `Active volcanic ash map and advisory for Mount ${advisory.volcanoName}, Indonesia. Observed ash altitude: ${formatAltitudeCompact(
+        advisory.primaryFlightLevel
+      )}, movement: ${formatMovementHuman(advisory.primaryMovement)}.`
+    : `Volcanic ash monitoring and map for Mount ${volcanoName} in Indonesia.`;
 
   return {
     title,
     description,
     alternates: {
-      canonical: `/volcanoes/${slug}`,
+      canonical: `${SITE_URL}/volcanoes/${slug}`,
     },
     openGraph: {
-      title: `${title} | AshWatch`,
+      title,
       description,
       url: `${SITE_URL}/volcanoes/${slug}`,
+      images: [
+        {
+          url: `${SITE_URL}/opengraph-image`,
+          width: 1200,
+          height: 630,
+          alt: `Mount ${volcanoName} Volcanic Ash Map — AshWatch`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [`${SITE_URL}/opengraph-image`],
     },
   };
 }
@@ -60,42 +71,41 @@ export default async function VolcanoDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const data = await getDarwinAdvisories();
 
-  // Look up in live BoM advisories
   const latestAdvisory = data.deduplicated.find(
     (a) => a.volcanoName.toLowerCase() === slug.toLowerCase() || a.id.toLowerCase() === slug.toLowerCase()
   );
 
   if (!latestAdvisory) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8 text-center">
+      <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8 text-center">
         <Breadcrumbs
           items={[
-            { name: 'Volcanoes', url: '/volcanoes' },
+            { name: 'Active Ash Areas', url: '/volcanoes' },
             { name: slug.toUpperCase(), url: `/volcanoes/${slug}` },
           ]}
         />
-        <div className="mt-8 rounded-3xl border border-slate-800 bg-slate-900/40 p-12 backdrop-blur-md">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800 text-slate-400 mb-4">
-            <Mountain className="h-8 w-8" />
+        <div className="mt-8 rounded-3xl border border-white/10 bg-[#111827]/60 p-10">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#151C28] text-[#8B95A7] mb-4">
+            <Mountain className="h-7 w-7" />
           </div>
-          <h1 className="text-2xl font-black text-white sm:text-3xl">
+          <h1 className="text-xl font-bold text-white sm:text-2xl">
             {slug.toUpperCase()}
           </h1>
-          <p className="mt-3 text-sm text-slate-400 max-w-md mx-auto">
-            Darwin VAAC is not currently tracking an active volcanic ash advisory for this summit in the recent BoM feed.
+          <p className="mt-2 text-xs sm:text-sm text-[#8B95A7] max-w-md mx-auto">
+            There is currently no active volcanic ash advisory reported for this volcano in the recent Darwin VAAC feed.
           </p>
-          <div className="mt-6 flex justify-center gap-4">
+          <div className="mt-6 flex justify-center gap-3">
             <Link
               href="/volcanoes"
-              className="rounded-xl bg-slate-800 px-5 py-2.5 text-xs font-bold text-white hover:bg-slate-700 transition"
+              className="rounded-xl bg-[#151C28] px-4 py-2 text-xs font-semibold text-white hover:bg-white/10 transition"
             >
-              Browse Active Volcanoes
+              Browse Active Ash Areas
             </Link>
             <Link
               href="/map"
-              className="rounded-xl bg-red-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-red-500 transition"
+              className="rounded-xl bg-[#FF6B1A] px-4 py-2 text-xs font-bold text-white hover:bg-[#FF8A3D] transition"
             >
-              Launch Live Map
+              Open Live Map
             </Link>
           </div>
         </div>
@@ -103,153 +113,109 @@ export default async function VolcanoDetailPage({ params }: PageProps) {
     );
   }
 
-  // All bulletins for this volcano in the 7-day feed
   const history = data.advisories.filter(
     (a) => a.volcanoName.toUpperCase() === latestAdvisory.volcanoName.toUpperCase()
   );
 
-  const color = getVolcanoColor(latestAdvisory.volcanoName);
-
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       <Breadcrumbs
         items={[
-          { name: 'Volcanoes', url: '/volcanoes' },
+          { name: 'Active Ash Areas', url: '/volcanoes' },
           { name: latestAdvisory.volcanoName, url: `/volcanoes/${slug}` },
         ]}
       />
 
-      {/* Header Card */}
-      <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-8 shadow-2xl">
-        <div
-          className="absolute top-0 left-0 right-0 h-1.5"
-          style={{ backgroundColor: color }}
-        />
-
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      {/* Header Banner */}
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#111827] p-6 sm:p-8 shadow-2xl">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-              <MapPin className="h-4 w-4 text-red-500" />
-              <span>{latestAdvisory.area} {latestAdvisory.volcanoCode ? `· ICAO #${latestAdvisory.volcanoCode}` : ''}</span>
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#8B95A7]">
+              <MapPin className="h-3.5 w-3.5 text-[#FF6B1A]" />
+              <span>{latestAdvisory.area}</span>
+              {latestAdvisory.volcanoCode && <span>· #{latestAdvisory.volcanoCode}</span>}
             </div>
-            <h1 className="mt-2 text-3xl font-black text-white sm:text-5xl">
-              Mount {latestAdvisory.volcanoName}
+            <h1 className="mt-1 text-3xl font-black text-white sm:text-4xl">
+              Mount {latestAdvisory.volcanoName} Volcanic Ash Map
             </h1>
-            <p className="mt-2 text-sm text-slate-300">
+            <p className="mt-1 text-xs text-[#8B95A7]">
               {latestAdvisory.position
-                ? `Coordinates: ${latestAdvisory.position.latitude.toFixed(4)}°, ${latestAdvisory.position.longitude.toFixed(4)}°`
+                ? `Coordinates: ${latestAdvisory.position.latitude.toFixed(2)}°, ${latestAdvisory.position.longitude.toFixed(2)}°`
                 : ''}
               {latestAdvisory.sourceElevation ? ` · Summit Elevation: ${latestAdvisory.sourceElevation}` : ''}
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-500/20 px-3.5 py-1 text-xs font-bold text-red-400">
-              <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
-              <span>Active Ash Plume</span>
-            </span>
-
+          <div className="flex items-center gap-2">
             <Link
-              href="/map"
-              className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-red-600/25 hover:bg-red-500 transition"
+              href={`/map?lat=${latestAdvisory.position?.latitude || -6}&lng=${latestAdvisory.position?.longitude || 106}&label=${encodeURIComponent(
+                latestAdvisory.volcanoName
+              )}`}
+              className="flex items-center gap-1.5 rounded-xl bg-[#FF6B1A] px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-[#FF8A3D] transition"
             >
-              <Map className="h-4 w-4" />
-              <span>View On Map</span>
+              <Map className="h-3.5 w-3.5" />
+              <span>Inspect on Map</span>
             </Link>
           </div>
         </div>
 
-        {/* Telemetry Grid */}
-        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-            <span className="text-xs text-slate-400 flex items-center gap-1.5">
-              <Plane className="h-3.5 w-3.5 text-red-400" />
-              <span>Flight Level</span>
+        {/* Key Metrics */}
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="rounded-xl bg-[#0B0F17]/80 p-3.5 border border-white/5">
+            <span className="text-[10px] text-[#8B95A7] uppercase block">Ash Altitude</span>
+            <span className="text-sm font-bold text-white">
+              {formatAltitudeCompact(latestAdvisory.primaryFlightLevel)}
             </span>
-            <p className="mt-1 text-lg font-bold text-red-400">
-              {latestAdvisory.primaryFlightLevel}
-            </p>
           </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-            <span className="text-xs text-slate-400 flex items-center gap-1.5">
-              <Wind className="h-3.5 w-3.5 text-amber-400" />
-              <span>Movement</span>
+          <div className="rounded-xl bg-[#0B0F17]/80 p-3.5 border border-white/5">
+            <span className="text-[10px] text-[#8B95A7] uppercase block">Movement Drift</span>
+            <span className="text-sm font-semibold text-amber-300">
+              {formatMovementHuman(latestAdvisory.primaryMovement)}
             </span>
-            <p className="mt-1 text-lg font-bold text-amber-300">
-              {latestAdvisory.primaryMovement}
-            </p>
           </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-            <span className="text-xs text-slate-400 flex items-center gap-1.5">
-              <Layers className="h-3.5 w-3.5 text-blue-400" />
-              <span>Polygons</span>
-            </span>
-            <p className="mt-1 text-lg font-bold text-white">
-              {latestAdvisory.polygons.length} layers
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-            <span className="text-xs text-slate-400 flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Latest Bulletin</span>
-            </span>
-            <p className="mt-1 text-xs font-bold text-slate-200" suppressHydrationWarning>
+          <div className="rounded-xl bg-[#0B0F17]/80 p-3.5 border border-white/5">
+            <span className="text-[10px] text-[#8B95A7] uppercase block">Last Advisory</span>
+            <span className="text-xs font-semibold text-slate-300">
               {formatWibDateTime(latestAdvisory.dtg)}
-            </p>
+            </span>
           </div>
         </div>
-
-        {latestAdvisory.eruptionDetails && (
-          <div className="mt-6 rounded-2xl border border-slate-800/80 bg-slate-950/70 p-4 text-xs">
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">
-              Eruption Details
-            </span>
-            <p className="font-mono text-slate-200 leading-relaxed">
-              {latestAdvisory.eruptionDetails}
-            </p>
-          </div>
-        )}
       </div>
 
-      {/* Advisory Bulletins History */}
-      <div className="mt-10">
-        <h2 className="text-xl font-black text-white mb-4">
-          Recent Bulletins from Darwin VAAC ({history.length})
+      {/* Advisory History Section */}
+      <div className="mt-8">
+        <h2 className="text-lg font-bold text-white mb-4">
+          Recent Advisories for {latestAdvisory.volcanoName} ({history.length})
         </h2>
 
         <div className="space-y-3">
-          {history.map((adv) => (
+          {history.map((h) => (
             <div
-              key={adv.id}
-              className="flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-800 bg-slate-900/40 p-4 backdrop-blur-sm gap-3 hover:border-slate-700 transition"
+              key={h.id}
+              className="surface-card rounded-xl p-4 border border-white/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
             >
-              <div className="space-y-1">
+              <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-white text-sm">
-                    Advisory #{adv.advisoryNumber}
+                  <span className="text-sm font-bold text-white">
+                    Advisory #{h.advisoryNumber}
                   </span>
-                  <span className="text-xs text-slate-400" suppressHydrationWarning>
-                    · {formatWibDateTime(adv.dtg)} ({formatUtcDateTime(adv.dtg)})
+                  <span className="text-xs text-[#8B95A7]">
+                    {formatWibDateTime(h.dtg)}
                   </span>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-400">
-                  <span className="text-red-400 font-semibold">{adv.primaryFlightLevel}</span>
+                <div className="mt-1 text-xs text-[#8B95A7] flex items-center gap-3">
+                  <span>Alt: <strong className="text-white">{h.primaryFlightLevel}</strong></span>
                   <span>•</span>
-                  <span className="text-amber-300">{adv.primaryMovement}</span>
-                  <span>•</span>
-                  <span>{adv.polygons.length} polygon layers</span>
+                  <span>Mov: <strong className="text-amber-300">{h.primaryMovement}</strong></span>
                 </div>
               </div>
 
               <Link
-                href={`/advisories/${adv.id}`}
-                className="flex items-center gap-1 text-xs font-bold text-red-400 hover:text-white transition self-end sm:self-center"
+                href={`/advisories/${h.id}`}
+                className="flex items-center gap-1 text-xs font-semibold text-[#FF6B1A] hover:text-[#FF8A3D] transition self-end sm:self-auto"
               >
-                <span>Inspect Bulletin</span>
-                <ArrowRight className="h-3.5 w-3.5" />
+                <span>View Bulletin</span>
+                <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
           ))}
