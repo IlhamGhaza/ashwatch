@@ -19,12 +19,19 @@ export const metadata: Metadata = {
   },
 };
 
+export const revalidate = 120; // Revalidate every 2 minutes
+
 export default async function MapPage() {
   const data = await getDarwinAdvisories();
 
   return (
-    <div className="relative h-[calc(100vh-61px)] w-full overflow-hidden bg-slate-950">
-      <MapWrapper advisories={data.deduplicated} />
+    <div className="relative h-screen w-full overflow-hidden bg-[#0a1628]">
+      <MapWrapper
+        advisories={data.deduplicated}
+        updatedAt={data.updatedAt}
+        source={data.source}
+        totalActive={data.totalActiveVolcanoes}
+      />
     </div>
   );
 }

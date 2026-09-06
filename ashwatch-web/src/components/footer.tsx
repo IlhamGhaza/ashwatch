@@ -1,26 +1,26 @@
 import React from 'react';
 import Link from 'next/link';
-import { Flame, ShieldAlert, ExternalLink, Radio, Heart } from 'lucide-react';
+import { Flame, ShieldAlert, ExternalLink } from 'lucide-react';
 import { SITE_CONFIG } from '@/config/site';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-slate-800/80 bg-slate-950 text-slate-400" aria-label="Footer">
+    <footer className="border-t border-[#1a2d4a]/60 bg-[#0a1628] text-[#5a7396]" aria-label="Footer">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4 lg:grid-cols-5">
           {/* Brand & Mission */}
           <div className="md:col-span-2">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 to-amber-600">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-600 to-amber-500">
                 <Flame className="h-4 w-4 text-white" />
               </div>
               <span className="text-lg font-black text-white">
-                Ash<span className="text-red-500">Watch</span>
+                Ash<span className="text-orange-500">Watch</span>
               </span>
             </Link>
-            <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-400">
+            <p className="mt-3 max-w-sm text-sm leading-relaxed text-[#5a7396]">
               Real-time visualization and monitoring of volcanic ash advisories (VAA) for Indonesia,
               ingested directly from the Darwin Volcanic Ash Advisory Centre (VAAC).
             </p>
@@ -35,17 +35,17 @@ export function Footer() {
 
           {/* Core Navigation */}
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">Navigation</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Navigation</h3>
             <ul className="mt-3 space-y-2 text-sm">
               <li>
                 <Link href="/" className="transition hover:text-white">
-                  Home Landing
+                  Home
                 </Link>
               </li>
               <li>
                 <Link href="/map" className="transition hover:text-white flex items-center gap-1.5">
                   <span>Interactive Map</span>
-                  <span className="rounded bg-red-500/20 px-1 text-[10px] text-red-400 font-semibold">Live</span>
+                  <span className="rounded bg-orange-500/15 px-1 text-[10px] text-orange-400 font-semibold">Live</span>
                 </Link>
               </li>
               <li>
@@ -61,9 +61,9 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Resources & SEO Links */}
+          {/* Resources */}
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">Resources</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Resources</h3>
             <ul className="mt-3 space-y-2 text-sm">
               <li>
                 <Link href="/data-sources" className="transition hover:text-white">
@@ -90,7 +90,7 @@ export function Footer() {
 
           {/* External & Attribution */}
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">Official Data</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Official Data</h3>
             <ul className="mt-3 space-y-2 text-sm">
               <li>
                 <a
@@ -140,11 +140,11 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Safety & Compliance Disclaimer - Section 23 of tugas.md */}
-        <div className="mt-10 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 sm:p-5">
+        {/* Safety & Compliance Disclaimer */}
+        <div className="mt-10 rounded-xl border border-amber-500/15 bg-amber-500/[0.03] p-4 sm:p-5">
           <div className="flex items-start gap-3">
-            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
-            <div className="text-xs leading-relaxed text-amber-200/90">
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+            <div className="text-xs leading-relaxed text-amber-200/70">
               <strong className="font-semibold text-amber-300">Safety & Official Authority Disclaimer: </strong>
               AshWatch is an independent visualization and research tool. It is not an official government agency
               or aviation meteorology authority. Information provided by AshWatch is derived from public Darwin VAAC
@@ -155,14 +155,14 @@ export function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-slate-900 pt-6 text-xs text-slate-400 sm:flex-row">
+        <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-[#1a2d4a]/60 pt-6 text-xs text-[#5a7396] sm:flex-row">
           <p>
             © {currentYear} AshWatch. Created by{' '}
             <a
               href="https://github.com/IlhamGhaza"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-semibold text-slate-200 hover:text-red-400 underline decoration-slate-700 underline-offset-2 transition"
+              className="font-semibold text-slate-300 hover:text-orange-400 underline decoration-[#1a2d4a] underline-offset-2 transition"
             >
               Ilham Ghaza
             </a>

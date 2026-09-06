@@ -31,15 +31,6 @@
       ]
     },
     {
-      "source": "/api/advisories",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, s-maxage=600, stale-while-revalidate=1200"
-        }
-      ]
-    },
-    {
       "source": "/(logo.png|logo_vercel.png|favicon.ico)",
       "headers": [
         {

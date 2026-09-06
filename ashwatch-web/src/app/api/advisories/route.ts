@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         'Cache-Control': isFresh
-          ? 'no-store, max-age=0'
-          : 'public, s-maxage=300, stale-while-revalidate=600',
+          ? 'no-store, no-cache, max-age=0, must-revalidate'
+          : 'public, s-maxage=120, stale-while-revalidate=300',
       },
     });
   } catch (error) {

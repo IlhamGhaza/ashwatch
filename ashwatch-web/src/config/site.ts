@@ -25,7 +25,7 @@ export const SITE_CONFIG = {
     authorGithub: 'https://github.com/IlhamGhaza',
     bomDataSource: 'https://www.bom.gov.au/products/Volc_ash_recent.shtml',
   },
-  themeColor: '#0F172A',
+  themeColor: '#0a1628',
   locale: 'en_US',
   keywords: [
     'volcanic ash',
