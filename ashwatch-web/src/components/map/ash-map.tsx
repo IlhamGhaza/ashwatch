@@ -26,6 +26,7 @@ import {
   Layers,
   Search,
   MapPin,
+  Check,
   CheckCircle2,
   AlertTriangle,
   Clock,
@@ -83,8 +84,25 @@ export default function AshMap({
   const [selectedAdvisory, setSelectedAdvisory] = useState<VolcanoAdvisory | null>(null);
   const allMonitored = useMemo(() => getAllMonitoredVolcanoes(), []);
   const [selectedMonitored, setSelectedMonitored] = useState<MonitoredVolcanoItem | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | MagmaLevel>('ALL');
+  // Multi-select for 4 MAGMA ESDM / PVMBG volcano alert levels (default: all levels active)
+  const [selectedLevels, setSelectedLevels] = useState<MagmaLevel[]>([1, 2, 3, 4]);
   const [leftRailTab, setLeftRailTab] = useState<'ALL' | 'ASH'>('ALL');
+
+  const toggleLevel = (level: MagmaLevel) => {
+    setSelectedLevels((prev) =>
+      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
+    );
+  };
+
+  const isAllLevelsSelected = selectedLevels.length === 4;
+
+  const toggleAllLevels = () => {
+    if (selectedLevels.length === 4) {
+      setSelectedLevels([]);
+    } else {
+      setSelectedLevels([1, 2, 3, 4]);
+    }
+  };
 
   // Counts for each of the 4 MAGMA ESDM levels
   const countLevel4 = useMemo(() => allMonitored.filter((v) => v.level === 4).length, [allMonitored]);
@@ -92,11 +110,10 @@ export default function AshMap({
   const countLevel2 = useMemo(() => allMonitored.filter((v) => v.level === 2).length, [allMonitored]);
   const countLevel1 = useMemo(() => allMonitored.filter((v) => v.level === 1).length, [allMonitored]);
 
-  // Filtered monitored volcanoes based on active level filter
+  // Filtered monitored volcanoes based on active multi-selected levels
   const filteredMonitored = useMemo(() => {
-    if (statusFilter === 'ALL') return allMonitored;
-    return allMonitored.filter((v) => v.level === statusFilter);
-  }, [allMonitored, statusFilter]);
+    return allMonitored.filter((v) => selectedLevels.includes(v.level));
+  }, [allMonitored, selectedLevels]);
 
   // User location check result
   const [userLocation, setUserLocation] = useState<LatLng | null>(null);
@@ -364,9 +381,9 @@ export default function AshMap({
       // Track plotted volcano names so we do not duplicate
       const plottedVolcanoNames = new Set<string>();
 
-      // Filter monitored volcanoes based on active statusFilter and activeLayers.allVolcanoes
+      // Filter monitored volcanoes based on active selectedLevels and activeLayers.allVolcanoes
       const volcanoesToPlot = allMonitored.filter((v) => {
-        if (statusFilter !== 'ALL' && v.level !== statusFilter) {
+        if (!selectedLevels.includes(v.level)) {
           return false;
         }
         return true;
@@ -493,7 +510,7 @@ export default function AshMap({
         const lng = advisory.position.longitude;
         const magmaStatus = getMagmaVolcanoStatus(advisory.volcanoName);
 
-        if (statusFilter !== 'ALL' && magmaStatus.level !== statusFilter) return;
+        if (!selectedLevels.includes(magmaStatus.level)) return;
 
         const markerHtml = `
           <div class="flex flex-col items-center cursor-pointer select-none" style="transform: translate(-50%, -50%);">
@@ -641,7 +658,7 @@ export default function AshMap({
     }
 
     updateLayers();
-  }, [advisories, activeLayers, isMapReady, allMonitored, statusFilter]);
+  }, [advisories, activeLayers, isMapReady, allMonitored, selectedLevels]);
 
   // Fit bounds helper focusing on Indonesia
   const fitAllAdvisories = async (map: LeafletMap, advs: VolcanoAdvisory[]) => {
@@ -897,75 +914,147 @@ export default function AshMap({
                     </button>
                   </div>
 
-                  {/* Filter 4 Tingkat Aktivitas MAGMA ESDM */}
+                  {/* Filter 4 Tingkat Aktivitas MAGMA ESDM (Multi-Select) */}
                   <div className="mt-2 space-y-1">
                     <button
-                      onClick={() => setStatusFilter('ALL')}
+                      onClick={toggleAllLevels}
                       className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-xs font-semibold transition ${
-                        statusFilter === 'ALL'
+                        isAllLevelsSelected
                           ? 'bg-white/15 text-white'
                           : 'text-[#8B95A7] hover:bg-white/5'
                       }`}
                     >
-                      <span>Semua Status</span>
-                      <span className="text-[10px] font-mono">{allMonitored.length}</span>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`flex h-3.5 w-3.5 items-center justify-center rounded border transition ${
+                            isAllLevelsSelected
+                              ? 'bg-white/30 border-white/60 text-white'
+                              : selectedLevels.length > 0
+                              ? 'bg-white/10 border-white/30 text-white'
+                              : 'border-white/20 bg-transparent'
+                          }`}
+                        >
+                          {isAllLevelsSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                          {!isAllLevelsSelected && selectedLevels.length > 0 && (
+                            <span className="h-1.5 w-1.5 rounded-sm bg-white" />
+                          )}
+                        </div>
+                        <span>Semua Status</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {isAllLevelsSelected
+                          ? allMonitored.length
+                          : `${filteredMonitored.length}/${allMonitored.length}`}
+                      </span>
                     </button>
 
                     <button
-                      onClick={() => setStatusFilter(4)}
+                      onClick={() => toggleLevel(4)}
                       className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-xs font-semibold transition ${
-                        statusFilter === 4
+                        selectedLevels.includes(4)
                           ? 'bg-[#EF4444]/25 text-[#F87171] border border-[#EF4444]/40'
-                          : 'text-[#8B95A7] hover:bg-white/5'
+                          : 'text-[#8B95A7] hover:bg-white/5 border border-transparent'
                       }`}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-[#EF4444]" />
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`flex h-3.5 w-3.5 items-center justify-center rounded border transition ${
+                            selectedLevels.includes(4)
+                              ? 'bg-[#EF4444] border-[#EF4444] text-white'
+                              : 'border-white/20 bg-transparent'
+                          }`}
+                        >
+                          {selectedLevels.includes(4) && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                        </div>
+                        <span
+                          className={`h-2 w-2 rounded-full ${
+                            selectedLevels.includes(4) ? 'bg-[#EF4444]' : 'bg-[#EF4444]/40'
+                          }`}
+                        />
                         <span>Level IV: Awas</span>
                       </div>
                       <span className="text-[10px] font-mono text-[#F87171]">{countLevel4}</span>
                     </button>
 
                     <button
-                      onClick={() => setStatusFilter(3)}
+                      onClick={() => toggleLevel(3)}
                       className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-xs font-semibold transition ${
-                        statusFilter === 3
+                        selectedLevels.includes(3)
                           ? 'bg-[#FF6B1A]/25 text-[#FF8A3D] border border-[#FF6B1A]/40'
-                          : 'text-[#8B95A7] hover:bg-white/5'
+                          : 'text-[#8B95A7] hover:bg-white/5 border border-transparent'
                       }`}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-[#FF6B1A]" />
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`flex h-3.5 w-3.5 items-center justify-center rounded border transition ${
+                            selectedLevels.includes(3)
+                              ? 'bg-[#FF6B1A] border-[#FF6B1A] text-white'
+                              : 'border-white/20 bg-transparent'
+                          }`}
+                        >
+                          {selectedLevels.includes(3) && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                        </div>
+                        <span
+                          className={`h-2 w-2 rounded-full ${
+                            selectedLevels.includes(3) ? 'bg-[#FF6B1A]' : 'bg-[#FF6B1A]/40'
+                          }`}
+                        />
                         <span>Level III: Siaga</span>
                       </div>
                       <span className="text-[10px] font-mono text-[#FF8A3D]">{countLevel3}</span>
                     </button>
 
                     <button
-                      onClick={() => setStatusFilter(2)}
+                      onClick={() => toggleLevel(2)}
                       className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-xs font-semibold transition ${
-                        statusFilter === 2
+                        selectedLevels.includes(2)
                           ? 'bg-[#F59E0B]/25 text-[#FBBF24] border border-[#F59E0B]/40'
-                          : 'text-[#8B95A7] hover:bg-white/5'
+                          : 'text-[#8B95A7] hover:bg-white/5 border border-transparent'
                       }`}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-[#F59E0B]" />
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`flex h-3.5 w-3.5 items-center justify-center rounded border transition ${
+                            selectedLevels.includes(2)
+                              ? 'bg-[#F59E0B] border-[#F59E0B] text-slate-950'
+                              : 'border-white/20 bg-transparent'
+                          }`}
+                        >
+                          {selectedLevels.includes(2) && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                        </div>
+                        <span
+                          className={`h-2 w-2 rounded-full ${
+                            selectedLevels.includes(2) ? 'bg-[#F59E0B]' : 'bg-[#F59E0B]/40'
+                          }`}
+                        />
                         <span>Level II: Waspada</span>
                       </div>
                       <span className="text-[10px] font-mono text-[#FBBF24]">{countLevel2}</span>
                     </button>
 
                     <button
-                      onClick={() => setStatusFilter(1)}
+                      onClick={() => toggleLevel(1)}
                       className={`flex w-full items-center justify-between rounded-lg px-2 py-1 text-xs font-semibold transition ${
-                        statusFilter === 1
+                        selectedLevels.includes(1)
                           ? 'bg-[#10B981]/25 text-[#34D399] border border-[#10B981]/40'
-                          : 'text-[#8B95A7] hover:bg-white/5'
+                          : 'text-[#8B95A7] hover:bg-white/5 border border-transparent'
                       }`}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-[#10B981]" />
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`flex h-3.5 w-3.5 items-center justify-center rounded border transition ${
+                            selectedLevels.includes(1)
+                              ? 'bg-[#10B981] border-[#10B981] text-white'
+                              : 'border-white/20 bg-transparent'
+                          }`}
+                        >
+                          {selectedLevels.includes(1) && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                        </div>
+                        <span
+                          className={`h-2 w-2 rounded-full ${
+                            selectedLevels.includes(1) ? 'bg-[#10B981]' : 'bg-[#10B981]/40'
+                          }`}
+                        />
                         <span>Level I: Normal</span>
                       </div>
                       <span className="text-[10px] font-mono text-[#34D399]">{countLevel1}</span>
@@ -1109,58 +1198,59 @@ export default function AshMap({
             </button>
           </div>
 
-          {/* Level Filter Chips when leftRailTab === 'ALL' */}
+          {/* Level Filter Chips when leftRailTab === 'ALL' (Multi-Select) */}
           {leftRailTab === 'ALL' && (
             <div className="flex items-center gap-1 mb-2 overflow-x-auto pb-1 text-[10px]">
               <button
-                onClick={() => setStatusFilter('ALL')}
+                onClick={toggleAllLevels}
                 className={`px-2 py-1 rounded-md font-bold transition whitespace-nowrap ${
-                  statusFilter === 'ALL'
+                  isAllLevelsSelected
                     ? 'bg-white/20 text-white'
                     : 'bg-white/5 text-[#8B95A7] hover:text-white'
                 }`}
+                title={isAllLevelsSelected ? 'Hapus semua pilihan level' : 'Pilih semua level'}
               >
                 Semua ({allMonitored.length})
               </button>
               <button
-                onClick={() => setStatusFilter(4)}
+                onClick={() => toggleLevel(4)}
                 className={`px-2 py-1 rounded-md font-bold transition whitespace-nowrap flex items-center gap-1 ${
-                  statusFilter === 4
-                    ? 'bg-[#EF4444] text-white'
-                    : 'bg-[#EF4444]/15 text-[#F87171] hover:bg-[#EF4444]/25'
+                  selectedLevels.includes(4)
+                    ? 'bg-[#EF4444] text-white shadow-sm ring-1 ring-[#EF4444]/60'
+                    : 'bg-[#EF4444]/15 text-[#F87171] hover:bg-[#EF4444]/25 opacity-50'
                 }`}
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
                 <span>IV Awas ({countLevel4})</span>
               </button>
               <button
-                onClick={() => setStatusFilter(3)}
+                onClick={() => toggleLevel(3)}
                 className={`px-2 py-1 rounded-md font-bold transition whitespace-nowrap flex items-center gap-1 ${
-                  statusFilter === 3
-                    ? 'bg-[#FF6B1A] text-white'
-                    : 'bg-[#FF6B1A]/15 text-[#FF8A3D] hover:bg-[#FF6B1A]/25'
+                  selectedLevels.includes(3)
+                    ? 'bg-[#FF6B1A] text-white shadow-sm ring-1 ring-[#FF6B1A]/60'
+                    : 'bg-[#FF6B1A]/15 text-[#FF8A3D] hover:bg-[#FF6B1A]/25 opacity-50'
                 }`}
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
                 <span>III Siaga ({countLevel3})</span>
               </button>
               <button
-                onClick={() => setStatusFilter(2)}
+                onClick={() => toggleLevel(2)}
                 className={`px-2 py-1 rounded-md font-bold transition whitespace-nowrap flex items-center gap-1 ${
-                  statusFilter === 2
-                    ? 'bg-[#F59E0B] text-slate-900'
-                    : 'bg-[#F59E0B]/15 text-[#FBBF24] hover:bg-[#F59E0B]/25'
+                  selectedLevels.includes(2)
+                    ? 'bg-[#F59E0B] text-slate-950 font-black shadow-sm ring-1 ring-[#F59E0B]/60'
+                    : 'bg-[#F59E0B]/15 text-[#FBBF24] hover:bg-[#F59E0B]/25 opacity-50'
                 }`}
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
                 <span>II Waspada ({countLevel2})</span>
               </button>
               <button
-                onClick={() => setStatusFilter(1)}
+                onClick={() => toggleLevel(1)}
                 className={`px-2 py-1 rounded-md font-bold transition whitespace-nowrap flex items-center gap-1 ${
-                  statusFilter === 1
-                    ? 'bg-[#10B981] text-white'
-                    : 'bg-[#10B981]/15 text-[#34D399] hover:bg-[#10B981]/25'
+                  selectedLevels.includes(1)
+                    ? 'bg-[#10B981] text-white shadow-sm ring-1 ring-[#10B981]/60'
+                    : 'bg-[#10B981]/15 text-[#34D399] hover:bg-[#10B981]/25 opacity-50'
                 }`}
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
@@ -1223,6 +1313,16 @@ export default function AshMap({
                   </button>
                 );
               })
+            ) : filteredMonitored.length === 0 ? (
+              <div className="py-6 px-3 text-center rounded-xl bg-white/5 border border-white/10">
+                <p className="text-xs font-medium text-[#8B95A7]">Tidak ada level yang dipilih</p>
+                <button
+                  onClick={() => setSelectedLevels([1, 2, 3, 4])}
+                  className="mt-2 inline-flex items-center gap-1 rounded-lg bg-[#FF6B1A]/20 px-2.5 py-1 text-[11px] font-bold text-[#FF8A3D] hover:bg-[#FF6B1A]/30 transition"
+                >
+                  Pilih Semua Level
+                </button>
+              </div>
             ) : (
               filteredMonitored.map((volc) => {
                 const isSelected = selectedMonitored?.volcanoSlug === volc.volcanoSlug;
